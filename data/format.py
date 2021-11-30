@@ -19,7 +19,7 @@ def format_omniglot(git_path):
     if os.path.exists(target): shutil.rmtree(target)
     for f in list(glob.glob(zips)):
         with zipfile.ZipFile(f, 'r') as zf:
-            desc = f'Unzipping {os.path.basename(f):<40}'
+            desc = f'    ==> {os.path.basename(f):<40}'
             for member in tqdm(
                     zf.infolist(),
                     desc=desc,
