@@ -43,7 +43,7 @@ class ResidualBlock(nn.Module):
     def forward(self, x):
         res = x
         x = self.conv(x)
-        x += res
+        # x += res
         return x 
 
 class StackedRes(nn.Module):
@@ -60,9 +60,31 @@ class StackedRes(nn.Module):
         x = self.stack(x)
         return x
 
+class Encoder(nn.Module):
+
+    def __init__(self, in_size, out_size):
+        super(Encoder, self).__init__()
+        self.flat = nn.Flatten()
+        self.lin = nn.Linear(in_size, out_size)
+        
+    def forward(self, x):
+        x = self.flat(x)
+        x = self.lin(x)
+        return x
+
+class ResNetwork(nn.Module):
+
+    def __init__(self, in_size, in_dim, out_size):
+        super(ResNetwork, self).__init__()
+        self.res = StackedRes(in_size)
+        self.enc = Encoder(6 * in_dim**2, out_size)
+
+    def forward(self, x):
+        x = self.res(x)
+        x = self.enc(x)
+        return x
 
 if __name__ == '__main__':
 
-    simpleres = StackedRes(3)
-    print('StackedRes Model:')
-    summary(simpleres, input_size=(3, 32, 32))
+    model = ResNetwork(1, 50)
+    summary(model, input_size=(1, 102, 102))
