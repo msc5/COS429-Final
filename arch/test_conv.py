@@ -86,5 +86,5 @@ class ResNetwork(nn.Module):
 
 if __name__ == '__main__':
 
-    model = ResNetwork(1, 50)
-    summary(model, input_size=(1, 102, 102))
+    model = ResNetwork(1, 105, 1623)
+    summary(model, input_size=(1, 105, 105))
