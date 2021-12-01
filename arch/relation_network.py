@@ -92,20 +92,18 @@ class Decoder(nn.Module):
     def forward(self, x):
         x = self.pool(x)
         x = x.view(x.shape[0], -1)
-        print(x.shape)
         x = self.stack(x)
         return x
 
 
 class RelationNetwork(nn.Module):
 
-    def __init__(self, H):
+    def __init__(self, fi):
         """
         Decoder
         Arguments:
         """
         super(RelationNetwork, self).__init__()
-        fi = 3
         fo = 64
         li = fo * 3**2
         lo = 8
@@ -122,5 +120,5 @@ class RelationNetwork(nn.Module):
 
 if __name__ == '__main__':
     # model = Encoder(3, 64)
-    model = RelationNetwork(105)
-    summary(model, input_size=[(3, 105, 105), (3, 105, 105)])
+    model = RelationNetwork(1)
+    summary(model, input_size=[(1, 105, 105), (1, 105, 105)])
