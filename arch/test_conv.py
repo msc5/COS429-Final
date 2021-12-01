@@ -76,6 +76,7 @@ class ResNetwork(nn.Module):
 
     def __init__(self, in_size, in_dim, out_size):
         super(ResNetwork, self).__init__()
+        self.__name__ = 'ResNetwork'
         self.res = StackedRes(in_size)
         self.enc = Encoder(6 * in_dim**2, out_size)
 

@@ -5,14 +5,14 @@ from torchvision.transforms import ToTensor
 
 def omniglot_DataLoader(path):
     dataset = Omniglot(
-            '../omniglot',
+            'datasets/omniglot',
             True,
             download=True,
             transform=ToTensor(),
         )
     dataloader = torch.utils.data.DataLoader(
             dataset,
-            batch_size=64,
+            batch_size=128,
             shuffle=True,
         )
     return dataloader
