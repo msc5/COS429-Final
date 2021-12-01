@@ -3,7 +3,7 @@ import torch
 from torchvision.datasets import ImageNet, Omniglot
 from torchvision.transforms import ToTensor
 
-def omniglot_DataLoader(path):
+def omniglot_DataLoader():
     dataset = Omniglot(
             'datasets/omniglot',
             True,
