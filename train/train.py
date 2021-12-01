@@ -57,6 +57,8 @@ def train(
     path = os.path.join('models', name)
     f = io.open(os.path.join('logs', name + '_log'), 'a')
 
+    print(device)
+
     # Use GPU or CPU to train model
     model = model.to(device)
     model.train()
