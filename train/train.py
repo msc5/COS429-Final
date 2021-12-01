@@ -57,8 +57,6 @@ def train(
     path = os.path.join('models', name)
     f = io.open(os.path.join('logs', name + '_log'), 'a')
 
-    print(device)
-
     # Use GPU or CPU to train model
     model = model.to(device)
     model.train()
@@ -67,7 +65,7 @@ def train(
 
     for i in range(epochs):
 
-        for (j, data) in tqdm(enumerate(dataloader)):
+        for data in tqdm(dataloader):
 
             inputs, labels = data
             optim.zero_grad()
@@ -98,7 +96,7 @@ def test(
     model.load_state_dict(torch.load(path))
     model.eval()
 
-    # Test Model on specified data
+    # Test Model on dataloader
 
 
 if __name__ == '__main__':
