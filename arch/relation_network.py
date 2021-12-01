@@ -71,7 +71,7 @@ class Encoder(nn.Module):
 
 class Decoder(nn.Module):
 
-    def __init__(self, fi, fo, li, lo):
+    def __init__(self, fo, li, lo):
         """
         Decoder
         Arguments:
@@ -81,7 +81,7 @@ class Decoder(nn.Module):
             lo: Number of output features in linear layer
         """
         super(Decoder, self).__init__()
-        self.pool = PoolBlock(fi, fo)
+        self.pool = PoolBlock(2 * fo, fo)
         self.stack = nn.Sequential(
             nn.Linear(li, lo),
             nn.ReLU(),
@@ -89,18 +89,19 @@ class Decoder(nn.Module):
             nn.Sigmoid()
         )
 
-    def forward(self, x):
-        x = self.pool(x)
-        x = x.view(x.shape[0], -1)
-        x = self.stack(x)
-        return x
+    def forward(self, x, y):
+        z = torch.cat((x, y), 1)
+        z = self.pool(z)
+        z = z.view(z.shape[0], -1)
+        z = self.stack(z)
+        return z
 
 
 class RelationNetwork(nn.Module):
 
     def __init__(self, fi):
         """
-        Decoder
+        Relation Network
         Arguments:
         """
         super(RelationNetwork, self).__init__()
@@ -108,13 +109,12 @@ class RelationNetwork(nn.Module):
         li = fo * 3**2
         lo = 8
         self.enc = Encoder(fi, fo)
-        self.dec = Decoder(2 * fo, fo, li, lo)
+        self.dec = Decoder(fo, li, lo)
 
     def forward(self, x, y):
         x = self.enc(x)
         y = self.enc(y)
-        z = torch.cat((x, y), 1)
-        z = self.dec(z)
+        z = self.dec(x, y)
         return z
 
 
