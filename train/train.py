@@ -48,7 +48,7 @@ def train(
             if j % (size // 4) == 0:
                 n_seen = j * batch_size
                 n_tot = size * batch_size
-                print(f'{"iter:":10}{j:<10}{"loss:":<10}{loss.item():.6f}{"prog:":>10}{j * (size / it):7}/ {size * 128:7}')
+                print(f'{"iter:":10}{j:<10}{"loss:":<10}{loss.item():.6f}')
 
     torch.save(model.state_dict(), path)
 
@@ -66,7 +66,7 @@ def test(
 if __name__ == '__main__': 
     
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    dataloader = omniglot_DataLoader('../omniglot')
+    dataloader = data.omniglot_DataLoader('../omniglot')
     model = arch.ResNetwork(1, 105, 1623)
     optim = optim.Adam(model.parameters(), lr=0.001)
     loss_fn = nn.CrossEntropyLoss()
