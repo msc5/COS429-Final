@@ -2,3 +2,4 @@
 **/*.code-workspace
 datasets/
 models/
+logs/
