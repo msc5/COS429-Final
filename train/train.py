@@ -17,24 +17,15 @@ import data
 
 def header(f):
     msg = (
-        f'{"":10}{"Batch":10}{"Progress":10}'
+            f'{"":10}{"Epoch":10}{"Loss":15}{"Accuracy":15}{"Elapsed Time":15}\n'
     )
     f.write(msg)
     print(msg)
 
 
-def write_ep(f, i):
+def write_ep(f, i, epochs, loss):
     msg = (
-        f'{"":10}{i:10}'
-    )
-
-
-def write_it(f, i, j, loss, n_seen, n_tot):
-    msg = (
-        f'{"":10}'
-        f'{"iter:":10}{j:10n}'
-        f'{"loss":10}{loss:.6f}'
-        f'{"prog":10}{n_seen:7}/ {n_tot:7}'
+            f'{"":10}{i:<2}/ {epochs:<6}{loss:10.6f}'
     )
     f.write(msg)
     print(msg)
@@ -49,23 +40,34 @@ def train(
         device,
 ):
 
+    print(device)
     size = len(dataloader)
     batch_size = dataloader.batch_size
 
-    # Name of model, save location, and log file stream
+    # Name of model and save location
     name = model.__name__
     path = os.path.join('models', name)
+
+    # Write file stream    
+    if not os.path.exists('logs'): os.makedirs('logs')
     f = io.open(os.path.join('logs', name + '_log'), 'a')
 
     # Use GPU or CPU to train model
     model = model.to(device)
     model.train()
+    torch.cuda.empty_cache()
 
     header(f)
 
-    for i in range(epochs):
+    for i in range(1, epochs):
 
-        for data in tqdm(dataloader):
+        for data in tqdm(
+                dataloader,
+                desc=f'{"":10}{i:<10}',
+                colour='green',
+                bar_format='{desc}|{bar:30}| {rate_fmt}',
+                leave=False,
+        ):
 
             inputs, labels = data
             optim.zero_grad()
@@ -74,13 +76,7 @@ def train(
             loss.backward()
             optim.step()
 
-            # # Print details 4 times per epoch
-            # if j % (size // 4) == 0:
-            #     n_seen=j * batch_size
-            #     n_tot=size * batch_size
-            #     write_it(f, i, j, loss, n_seen, n_tot)
-
-        write_ep(f, i, loss)
+        write_ep(f, i, epochs, loss.item())
 
     torch.save(model.state_dict(), path)
 
@@ -104,6 +100,7 @@ if __name__ == '__main__':
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     dataloader = data.omniglot_DataLoader()
     model = arch.ResNetwork(1, 105, 1623)
+    # moldel = arch.relation_network()
     optim = optim.Adam(model.parameters(), lr=0.001)
     loss_fn = nn.CrossEntropyLoss()
 

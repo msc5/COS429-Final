@@ -119,6 +119,6 @@ class RelationNetwork(nn.Module):
 
 
 if __name__ == '__main__':
-    # model = Encoder(3, 64)
-    model = RelationNetwork(1)
+    device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+    model = RelationNetwork(1).to(device)
     summary(model, input_size=[(1, 105, 105), (1, 105, 105)])

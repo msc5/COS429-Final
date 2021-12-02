@@ -14,6 +14,7 @@ def omniglot_DataLoader():
             dataset,
             batch_size=128,
             shuffle=True,
+            num_workers=4,
         )
     return dataloader
 
