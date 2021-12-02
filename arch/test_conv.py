@@ -43,7 +43,7 @@ class ResidualBlock(nn.Module):
     def forward(self, x):
         res = x
         x = self.conv(x)
-        # x += res
+        x = x + res
         return x 
 
 class StackedRes(nn.Module):
