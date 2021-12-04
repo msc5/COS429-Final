@@ -45,6 +45,7 @@ class Classifier(nn.Module):
         self.lin = nn.Linear(li, lo)
 
     def forward(self, x):
+        print(x.shape)
         x = x.view(1, -1)
         return self.lin(x)
 
@@ -76,11 +77,12 @@ class MatchingNets(nn.Module):
         s = self.embed(s)
         t = self.embed(t)
         dist = self.distance(s, t)
-        pred = self.classify(dist)
+        soft = dist.softmax(dim=1)
+        pred = self.classify(soft)
         return pred
 
 
 if __name__ == '__main__':
-    device = torch.device('cuda:0' if torch.has_cuda else 'cpu')
+    device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
     model = MatchingNets(1, 64, 10).to(device)
     summary(model, input_size=[(10, 1, 28, 28), (1, 1, 28, 28)])
