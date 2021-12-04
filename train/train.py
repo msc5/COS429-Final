@@ -111,10 +111,10 @@ def test(
 if __name__ == '__main__':
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    dataloader = data.omniglot_DataLoader()
+    ds, dataloader = data.omniglot_DataLoader()
     model = arch.ResNetwork(1, 105, 1623)
     # model = arch.relation_network()
-    model = arch.MatchingNets(1, 105, 10)
+    # model = arch.MatchingNets(1, 105, 10)
     optim = optim.Adam(model.parameters(), lr=0.001)
     loss_fn = nn.CrossEntropyLoss()
 

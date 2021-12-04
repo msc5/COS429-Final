@@ -34,3 +34,4 @@ In this architecture, the DNN subnet is an existing network
 (e.g., Inception or ResNet) pretrained on ImageNet.
 - With multiple feature maps at different levels being compared, is it even necessary to use a pre-trained base classifier? i.e. Pure meta-learning?
 - Pre-training base classifier can lead to bias in object scope
+- [Matching Networks DeepMind crew](https://github.com/karpathy/paper-notes/blob/master/matching_networks.md)

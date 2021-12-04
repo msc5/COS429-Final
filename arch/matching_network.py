@@ -33,8 +33,12 @@ class Embed(nn.Module):
         )
 
     def forward(self, x):
+        # x: (kq, nm, c, h, w)
+        kq, nm, c, h, w = x.shape
+        x = x.view(-1, c, h, w)
         x = self.seq(x)
         x = x.view(-1, self.fo)
+        # x: (kq * nm, fo)
         return x
 
 
@@ -42,12 +46,9 @@ class Classifier(nn.Module):
 
     def __init__(self, li, lo):
         super(Classifier, self).__init__()
-        self.lin = nn.Linear(li, lo)
 
     def forward(self, x):
-        print(x.shape)
-        x = x.view(1, -1)
-        return self.lin(x)
+        return x
 
 
 class Distance(nn.Module):
@@ -59,8 +60,8 @@ class Distance(nn.Module):
         # L2 distance
         n, q = s.shape[0], t.shape[0]
         dist = (
-            s.unsqueeze(1).expand(n, q, -1) -
-            t.unsqueeze(0).expand(n, q, -1)
+            - s.unsqueeze(1).expand(n, q, -1)
+            + t.unsqueeze(0).expand(n, q, -1)
         ).pow(2).sum(dim=2)
         return dist
 
@@ -69,20 +70,32 @@ class MatchingNets(nn.Module):
 
     def __init__(self, fi, fo, lo):
         super(MatchingNets, self).__init__()
-        self.embed = Embed(fi, fo)
+        self.f = Embed(fi, fo)
+        self.g = Embed(fi, fo)
         self.classify = Classifier(lo, lo)
         self.distance = Distance()
 
-    def forward(self, s, t):
-        s = self.embed(s)
-        t = self.embed(t)
-        dist = self.distance(s, t)
-        soft = dist.softmax(dim=1)
-        pred = self.classify(soft)
+    def forward(self, s, t, y):
+        # n-shot k-way m-shot q-way task
+        # s: (k, n, c, h, w)
+        # t: (q, m, c, h, w)
+        k, n, _, _, _ = s.shape
+        q, m, _, _, _ = t.shape
+        s = self.f(s)
+        t = self.g(t)
+        dist = self.distance(s, t).T
+        y_oh = torch.zeros(k * n, k).cuda().scatter(1,
+                                                    y.type(torch.int64), 1)
+        pred = torch.mm(dist, y_oh)
         return pred
 
 
 if __name__ == '__main__':
+    n = 10
+    k = 8
+    m = 5
+    q = 12
     device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
     model = MatchingNets(1, 64, 10).to(device)
-    summary(model, input_size=[(10, 1, 28, 28), (1, 1, 28, 28)])
+    summary(model, input_size=[(k, n, 1, 28, 28),
+            (q, m, 1, 28, 28), (k * n, 1)])
