@@ -27,9 +27,9 @@ def header(f):
     print(msg)
 
 
-def write_it(i, j, size, loss, stream=None):
+def write_it(i, j, size, loss, acc, stream=None):
     msg = (
-        f'{"":10}{i:<8}{j:<3} / {size:<6}{loss:<10.4f}{"":30}'
+        f'{"":10}{i:<8}{j:<3} / {size:<6}{loss:<10.4f}{acc:<10.4f}{"":20}'
     )
     if stream is not None:
         stream.write(msg)
@@ -66,11 +66,12 @@ def train(
     header(f)
 
     l = 0
+    acc = 0
     for i in range(1, epochs):
 
         t = tqdm(
             dataloader,
-            desc=write_it(i, 0, size, l),
+            desc=write_it(i, 0, size, l, acc),
             colour='cyan',
             bar_format='{desc}|{bar:20}| {rate_fmt}',
             leave=False,
@@ -79,19 +80,35 @@ def train(
 
             inputs, labels = data
 
-            optim.zero_grad()
-            outputs = model(inputs.to(device))
+            outputs = model(inputs, inputs, labels)
+            lab = labels.repeat_interleave(20)
+            lab_oh = torch.zeros(100, 964).to(device).scatter(
+                1, lab.unsqueeze(1), 1)
+            out = outputs.float()
 
-            loss = loss_fn(outputs, labels.to(device))
+            loss = loss_fn(out, lab_oh)
             l = loss.item()
             loss.backward()
             optim.step()
 
-            t.set_description(write_it(i, j, size, l))
+            # Compute Accuracy
+            pred = out.argmax(dim=1)
+            correct = torch.sum(lab == pred)
+            acc = correct / 100
 
-        print(write_it(i, size, size, l))
+            t.set_description(write_it(i, j, size, l, acc))
+
+        print(write_it(i, size, size, l, acc))
 
     torch.save(model.state_dict(), path)
+
+
+def (outputs):
+    outputs = model(inputs, inputs, labels)
+    lab = labels.repeat_interleave(20)
+    lab_oh = torch.zeros(100, 964).to(device).scatter(
+        1, lab.unsqueeze(1), 1)
+    out = outputs.float()
 
 
 def test(
@@ -111,11 +128,11 @@ def test(
 if __name__ == '__main__':
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    ds, dataloader = data.omniglot_DataLoader()
-    model = arch.ResNetwork(1, 105, 1623)
-    # model = arch.relation_network()
-    # model = arch.MatchingNets(1, 105, 10)
+    # device = torch.device('cpu')
+    dataloader = data.OmniglotDataLoader(device, 5)
+    model = arch.MatchingNets(device, 1, 64)
     optim = optim.Adam(model.parameters(), lr=0.001)
     loss_fn = nn.CrossEntropyLoss()
+    # loss_fn = nn.NLLLoss()
 
     train(model, dataloader, optim, loss_fn, 10, device)

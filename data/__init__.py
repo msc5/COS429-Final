@@ -1,1 +1,1 @@
-from .dataloader import omniglot_DataLoader
+from .dataloader import *

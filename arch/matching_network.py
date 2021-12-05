@@ -44,11 +44,17 @@ class Embed(nn.Module):
 
 class Classifier(nn.Module):
 
-    def __init__(self, li, lo):
+    def __init__(self, device):
+        self.device = device
         super(Classifier, self).__init__()
 
-    def forward(self, x):
-        return x
+    def forward(self, x, y, shapes):
+        k, n, q, m = shapes
+        y = y.type(torch.int64).repeat_interleave(m).unsqueeze(1)
+        b = torch.zeros(k * n, k).to(self.device)
+        y = b.scatter(0, y, 1)
+        pred = torch.mm(x, y)
+        return pred
 
 
 class Distance(nn.Module):
@@ -62,31 +68,28 @@ class Distance(nn.Module):
         dist = (
             - s.unsqueeze(1).expand(n, q, -1)
             + t.unsqueeze(0).expand(n, q, -1)
-        ).pow(2).sum(dim=2)
+        ).pow(2).sum(dim=2).T
         return dist
 
 
 class MatchingNets(nn.Module):
 
-    def __init__(self, fi, fo, lo):
+    def __init__(self, device, fi, fo):
         super(MatchingNets, self).__init__()
+        self.device = device
         self.f = Embed(fi, fo)
         self.g = Embed(fi, fo)
-        self.classify = Classifier(lo, lo)
         self.distance = Distance()
+        self.classify = Classifier(self.device)
+        self.__name__ = 'MatchingNets'
 
     def forward(self, s, t, y):
-        # n-shot k-way m-shot q-way task
-        # s: (k, n, c, h, w)
-        # t: (q, m, c, h, w)
         k, n, _, _, _ = s.shape
         q, m, _, _, _ = t.shape
         s = self.f(s)
         t = self.g(t)
-        dist = self.distance(s, t).T
-        y_oh = torch.zeros(k * n, k).cuda().scatter(1,
-                                                    y.type(torch.int64), 1)
-        pred = torch.mm(dist, y_oh)
+        dist = self.distance(s, t)
+        pred = self.classify(dist, y, (k, n, q, m))
         return pred
 
 
@@ -96,6 +99,9 @@ if __name__ == '__main__':
     m = 5
     q = 12
     device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
-    model = MatchingNets(1, 64, 10).to(device)
-    summary(model, input_size=[(k, n, 1, 28, 28),
-            (q, m, 1, 28, 28), (k * n, 1)])
+    model = MatchingNets(device, 1, 64).to(device)
+    summary(model, input_size=[
+        (k, n, 1, 28, 28),
+        (q, m, 1, 28, 28),
+        (q, 1)
+    ], device=device)
