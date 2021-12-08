@@ -31,7 +31,7 @@ class OmniglotDataset(Dataset):
         self.batch_size = 20
         self.ds = Omniglot(
             'datasets/omniglot',
-            True,
+            background=True,
             download=True,
             transform=self.transform
         )
