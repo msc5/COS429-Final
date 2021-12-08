@@ -62,16 +62,17 @@ def train(
     model = model.to(device)
     model.train()
     torch.cuda.empty_cache()
+    model.zero_grad()
 
     header(f)
 
-    l = 0
+    loss = 0
     acc = 0
     for i in range(1, epochs):
 
         t = tqdm(
             dataloader,
-            desc=write_it(i, 0, size, l, acc),
+            desc=write_it(i, 0, size, loss, acc),
             colour='cyan',
             bar_format='{desc}|{bar:20}| {rate_fmt}',
             leave=False,
@@ -81,34 +82,32 @@ def train(
             inputs, labels = data
 
             outputs = model(inputs, inputs, labels)
-            lab = labels.repeat_interleave(20)
-            lab_oh = torch.zeros(100, 964).to(device).scatter(
-                1, lab.unsqueeze(1), 1)
-            out = outputs.float()
 
-            loss = loss_fn(out, lab_oh)
-            l = loss.item()
-            loss.backward()
+            loss_tr = loss_fn(outputs[1], outputs[0])
+            loss = loss_tr.item()
+
+            loss_tr.backward()
             optim.step()
 
             # Compute Accuracy
-            pred = out.argmax(dim=1)
-            correct = torch.sum(lab == pred)
+            pred = outputs[0].argmax(dim=1)
+            lab = outputs[1].argmax(dim=1)
+            correct = torch.sum(lab == pred).to(device)
             acc = correct / 100
 
-            t.set_description(write_it(i, j, size, l, acc))
+            t.set_description(write_it(i, j, size, loss, acc))
 
-        print(write_it(i, size, size, l, acc))
+        print(write_it(i, size, size, loss, acc))
 
     torch.save(model.state_dict(), path)
 
 
-def (outputs):
-    outputs = model(inputs, inputs, labels)
-    lab = labels.repeat_interleave(20)
-    lab_oh = torch.zeros(100, 964).to(device).scatter(
-        1, lab.unsqueeze(1), 1)
-    out = outputs.float()
+# def (outputs):
+#     outputs = model(inputs, inputs, labels)
+#     lab = labels.repeat_interleave(20)
+#     lab_oh = torch.zeros(100, 964).to(device).scatter(
+#         1, lab.unsqueeze(1), 1)
+#     out = outputs.float()
 
 
 def test(
@@ -131,8 +130,7 @@ if __name__ == '__main__':
     # device = torch.device('cpu')
     dataloader = data.OmniglotDataLoader(device, 5)
     model = arch.MatchingNets(device, 1, 64)
-    optim = optim.Adam(model.parameters(), lr=0.001)
+    optim = optim.Adam(model.parameters(), lr=0.01)
     loss_fn = nn.CrossEntropyLoss()
-    # loss_fn = nn.NLLLoss()
 
     train(model, dataloader, optim, loss_fn, 10, device)

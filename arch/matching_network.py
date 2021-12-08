@@ -48,13 +48,14 @@ class Classifier(nn.Module):
         self.device = device
         super(Classifier, self).__init__()
 
-    def forward(self, x, y, shapes):
+    def forward(self, x, shapes):
         k, n, q, m = shapes
-        y = y.type(torch.int64).repeat_interleave(m).unsqueeze(1)
-        b = torch.zeros(k * n, k).to(self.device)
-        y = b.scatter(0, y, 1)
+        # y = y.type(torch.int64).repeat_interleave(m).unsqueeze(1)
+        # b = torch.zeros(k * n, k).to(self.device)
+        # y = b.scatter(0, y, 1)
+        y = torch.eye(k).repeat_interleave(n, dim=0).to(self.device)
         pred = torch.mm(x, y)
-        return pred
+        return y, pred
 
 
 class Distance(nn.Module):
@@ -89,8 +90,8 @@ class MatchingNets(nn.Module):
         s = self.f(s)
         t = self.g(t)
         dist = self.distance(s, t)
-        pred = self.classify(dist, y, (k, n, q, m))
-        return pred
+        lab, pred = self.classify(dist, (k, n, q, m))
+        return lab, pred.log()
 
 
 if __name__ == '__main__':

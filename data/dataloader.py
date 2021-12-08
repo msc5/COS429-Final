@@ -28,13 +28,13 @@ class OmniglotDataset(Dataset):
 
     def __init__(self, device):
         self.device = device
+        self.batch_size = 20
         self.ds = Omniglot(
             'datasets/omniglot',
             True,
             download=True,
             transform=self.transform
         )
-        self.batch_size = 10
 
     def transform(self, x):
         x = ToTensor()(x)
@@ -42,10 +42,12 @@ class OmniglotDataset(Dataset):
         return x
 
     def __len__(self):
-        return int(len(self.ds) / 20)
+        return int(len(self.ds) / self.batch_size)
 
     def __getitem__(self, i):
-        index = torch.arange(i * 20, i * 20 + 20, 1).tolist()
+        a = i * self.batch_size
+        b = a + self.batch_size
+        index = torch.arange(a, b, 1).tolist()
         x = torch.cat([self.ds[j][0].unsqueeze(0) for j in index])
         return x.to(self.device), i
 
@@ -74,9 +76,10 @@ class OmniglotDataLoader(DataLoader):
         return self
 
     def __next__(self):
-        i = self.i % len(self)
+        i = self.i
         self.i += 1
-        if i >= len(self):
+        if self.i > len(self):
+            self.i = 0
             raise StopIteration
         return self[i]
 
@@ -84,5 +87,7 @@ class OmniglotDataLoader(DataLoader):
 if __name__ == '__main__':
     device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
     dl = OmniglotDataLoader(device, 10)
-    for a in dl:
-        print(a[0].shape, a[1])
+    print(len(dl.ds), dl.ds.batch_size)
+    print(len(dl), dl.batch_size)
+    for i, a in enumerate(dl):
+        print(i, a[1].shape, a[1].shape)
