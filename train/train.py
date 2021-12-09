@@ -19,7 +19,7 @@ import data
 
 def header(f):
     msg = (
-        f'{"":30}{"Train":20}{"Test":20}\n'
+        f'{"":40}{"Train":20}{"Test":20}\n'
         f'{"":10}{"Epoch":8}{"Batch":12}'
         f'{"Loss":10}{"Accuracy":10}'
         f'{"Loss":10}{"Accuracy":10}'
@@ -29,9 +29,11 @@ def header(f):
     print(msg)
 
 
-def write_it(i, j, size, loss, acc, stream=None):
+def write_it(i, j, size, loss, acc, test_loss, test_acc, stream=None):
     msg = (
-        f'{"":10}{i:<8}{j:<3} / {size:<6}{loss:<10.4f}{acc:<10.4f}{"":20}'
+        f'{"":10}{i:<8}{j:<3} / {size:<6}'
+        f'{loss:<10.4f}{acc:<10.4f}'
+        f'{test_loss:<10.4f}{test_acc:<10.4f}'
     )
     if stream is not None:
         stream.write(msg)
@@ -41,15 +43,17 @@ def write_it(i, j, size, loss, acc, stream=None):
 def train(
         model,
         dataloader,
+        callbacks,
         optim,
         loss_fn,
         epochs,
         device,
 ):
 
-    print(device)
     size = len(dataloader)
     batch_size = dataloader.batch_size
+
+    print(device)
     print(size, batch_size)
 
     # Name of model and save location
@@ -67,42 +71,63 @@ def train(
     torch.cuda.empty_cache()
     model.zero_grad()
 
+    # Print header
     header(f)
 
-    loss = 0
-    acc = 0
     for i in range(1, epochs):
 
         t = tqdm(
             dataloader,
-            desc=write_it(i, 0, size, loss, acc),
-            colour='cyan',
+            desc=write_it(i, 0, size, 0, 0, 0, 0),
+            colour='green',
             bar_format='{desc}|{bar:20}| {rate_fmt}',
             leave=False,
         )
-        for j, data in enumerate(t):
+        for j, (train_dl, test_dl) in enumerate(t):
 
-            inputs, labels = data
+            inputs, _ = train_dl
 
-            outputs = model(inputs, labels)
+            loss, acc = callbacks[0](
+                model, inputs, loss_fn, batch_size, device, train=True)
 
-            loss_tr = loss_fn(outputs[1], outputs[0])
-            loss = loss_tr.item()
+            test_inputs, _ = test_dl
 
-            loss_tr.backward()
-            optim.step()
+            test_loss, test_acc = callbacks[0](
+                model, test_inputs, loss_fn, batch_size, device, train=False)
 
-            # Compute Accuracy
-            pred = outputs[0].argmax(dim=1)
-            lab = outputs[1].argmax(dim=1)
-            correct = torch.sum(lab == pred).to(device)
-            acc = correct / (batch_size * 20)
+            t.set_description(
+                write_it(i, j, size, loss, acc, test_loss, test_acc))
 
-            t.set_description(write_it(i, j, size, loss, acc))
-
-        print(write_it(i, size, size, loss, acc))
+        print(write_it(i, size, size, loss, acc, test_loss, test_acc))
 
     torch.save(model.state_dict(), path)
+
+
+def omniglotCallBack(model, inputs, loss_fn, batch_size, device, train=True):
+
+    if train:
+        model.train()
+        optim.zero_grad()
+    else:
+        model.eval()
+
+    outputs = model(inputs)
+
+    # Compute Loss
+    loss_tr = loss_fn(outputs[1], outputs[0])
+    loss = loss_tr.item()
+
+    # Compute Accuracy
+    pred = outputs[0].argmax(dim=1)
+    lab = outputs[1].argmax(dim=1)
+    correct = torch.sum(lab == pred).to(device)
+    acc = correct / pred.shape[0]
+
+    if train:
+        loss_tr.backward()
+        optim.step()
+
+    return loss, acc
 
 
 def test(
@@ -124,11 +149,15 @@ if __name__ == '__main__':
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     # device = torch.device('cpu')
 
-    dataset = data.OmniglotDataset(background=True, device=device)
-    dataloader = DataLoader(dataset, batch_size=8, shuffle=True)
+    train_ds = data.OmniglotDataset(background=True, device=device)
+    test_ds = data.OmniglotDataset(background=False, device=device)
+    ds = data.Siamese(train_ds, test_ds)
+    dl = DataLoader(ds, batch_size=8, shuffle=True)
 
     model = arch.MatchingNets(device, 1, 64)
     optim = optim.Adam(model.parameters(), lr=0.001)
     loss_fn = nn.CrossEntropyLoss()
 
-    train(model, dataloader, optim, loss_fn, 64, device)
+    callbacks = [omniglotCallBack]
+
+    train(model, dl, callbacks, optim, loss_fn, 64, device)

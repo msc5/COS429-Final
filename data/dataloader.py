@@ -5,16 +5,17 @@ import matplotlib.pyplot as plt
 from torchvision.datasets import ImageNet, Omniglot
 from torchvision.transforms import ToTensor, Resize, Compose
 
-from torch.utils.data import Dataset, DataLoader
+from torch.utils.data import Dataset, DataLoader, ConcatDataset
 
 
-# transform data outside this class
 class OmniglotDataset(Dataset):
 
-    def __init__(self, background: bool, device):
-        '''
-        background: True = use background set, otherwise evaluation set
-        '''
+    def __init__(
+            self,
+            device,
+            background=True,
+    ):
+        super(OmniglotDataset).__init__()
         self.device = device
         self.n = 20
         self.ds = Omniglot(
@@ -27,7 +28,6 @@ class OmniglotDataset(Dataset):
     def __len__(self):
         return int(len(self.ds) / self.n)
 
-    # each item is all images of a character (a class): there are 20 images per character and each image is (channel, height, width), so each item is (20, channel, height, width). Since all the images are the same character, the label is an integer, namely the index associated with this item.
     def __getitem__(self, i):
         a = i * self.n
         b = a + self.n
@@ -36,11 +36,37 @@ class OmniglotDataset(Dataset):
         return x.to(self.device), i
 
 
+class Siamese(Dataset):
+
+    def __init__(
+            self,
+            *datasets,
+    ):
+        super(Siamese).__init__()
+        self.ds = [d for d in datasets]
+
+    def __len__(self):
+        return len(self.ds[0])
+
+    def __getitem__(self, i):
+        return [ds[i % len(ds)] for ds in self.ds]
+
+
 if __name__ == '__main__':
-    device = "cuda" if torch.cuda.is_available() else "cpu"
-    ds = OmniglotDataset(background=True, device=device)
-    dl = DataLoader(ds, batch_size=64, shuffle=True)
-    print(len(ds))
-    print(len(dl))
+
+    device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+
+    train_ds = OmniglotDataset(background=True, device=device)
+    test_ds = OmniglotDataset(background=False, device=device)
+
+    ds = Siamese(train_ds, test_ds)
+
+    dl = DataLoader(ds, batch_size=8, shuffle=True)
+
+    print("Train Dataset Length: ", len(train_ds))
+    print("Test Dataset Length: ", len(test_ds))
+    print("Dataloader Length: ", len(dl))
+
     for i, a in enumerate(dl):
-        print(i, a[0].shape, a[1].shape)
+        print(f'{i:<5}', a[0][0].shape, a[0]
+              [1].shape, a[1][0].shape, a[1][1].shape)
