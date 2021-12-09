@@ -3,6 +3,7 @@ import torch.nn as nn
 import torch.optim as optim
 
 from torch.utils.data import DataLoader
+from torch.nn.utils import clip_grad_norm_
 
 from torchvision import transforms
 
@@ -19,7 +20,7 @@ import data
 
 def header(f):
     msg = (
-        f'{"":40}{"Train":20}{"Test":20}\n'
+        f'{"":35}{"Train":20}{"Test":20}\n'
         f'{"":10}{"Epoch":8}{"Batch":12}'
         f'{"Loss":10}{"Accuracy":10}'
         f'{"Loss":10}{"Accuracy":10}'
@@ -79,7 +80,7 @@ def train(
         t = tqdm(
             dataloader,
             desc=write_it(i, 0, size, 0, 0, 0, 0),
-            colour='green',
+            colour='cyan',
             bar_format='{desc}|{bar:20}| {rate_fmt}',
             leave=False,
         )
@@ -118,6 +119,7 @@ def omniglotCallBack(model, inputs, loss_fn, batch_size, device, train=True):
     loss = loss_tr.item()
 
     # Compute Accuracy
+    # print(outputs[0].shape, outputs[1].shape)
     pred = outputs[0].argmax(dim=1)
     lab = outputs[1].argmax(dim=1)
     correct = torch.sum(lab == pred).to(device)
@@ -125,6 +127,7 @@ def omniglotCallBack(model, inputs, loss_fn, batch_size, device, train=True):
 
     if train:
         loss_tr.backward()
+        clip_grad_norm_(model.parameters(), 1)
         optim.step()
 
     return loss, acc
