@@ -2,6 +2,8 @@ import torch
 import torch.nn as nn
 import torch.optim as optim
 
+from torch.utils.data import DataLoader
+
 from torchvision import transforms
 
 from tqdm import tqdm
@@ -48,6 +50,7 @@ def train(
     print(device)
     size = len(dataloader)
     batch_size = dataloader.batch_size
+    print(size, batch_size)
 
     # Name of model and save location
     name = model.__name__
@@ -81,7 +84,7 @@ def train(
 
             inputs, labels = data
 
-            outputs = model(inputs, inputs, labels)
+            outputs = model(inputs, labels)
 
             loss_tr = loss_fn(outputs[1], outputs[0])
             loss = loss_tr.item()
@@ -93,21 +96,13 @@ def train(
             pred = outputs[0].argmax(dim=1)
             lab = outputs[1].argmax(dim=1)
             correct = torch.sum(lab == pred).to(device)
-            acc = correct / 100
+            acc = correct / (batch_size * 20)
 
             t.set_description(write_it(i, j, size, loss, acc))
 
         print(write_it(i, size, size, loss, acc))
 
     torch.save(model.state_dict(), path)
-
-
-# def (outputs):
-#     outputs = model(inputs, inputs, labels)
-#     lab = labels.repeat_interleave(20)
-#     lab_oh = torch.zeros(100, 964).to(device).scatter(
-#         1, lab.unsqueeze(1), 1)
-#     out = outputs.float()
 
 
 def test(
@@ -128,9 +123,12 @@ if __name__ == '__main__':
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     # device = torch.device('cpu')
-    dataloader = data.OmniglotDataLoader(device, 5)
+
+    dataset = data.OmniglotDataset(background=True, device=device)
+    dataloader = DataLoader(dataset, batch_size=8, shuffle=True)
+
     model = arch.MatchingNets(device, 1, 64)
-    optim = optim.Adam(model.parameters(), lr=0.01)
+    optim = optim.Adam(model.parameters(), lr=0.001)
     loss_fn = nn.CrossEntropyLoss()
 
-    train(model, dataloader, optim, loss_fn, 10, device)
+    train(model, dataloader, optim, loss_fn, 64, device)
