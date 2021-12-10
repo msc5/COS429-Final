@@ -181,17 +181,35 @@ def omniglotCallBack(model, inputs, loss_fn, batch_size, device, train=True):
 
 
 def test(
-        arch,
+        model,
         path,
-        dataloader
+        dataloader,
+        loss_fn,
+        callbacks,
+        device
 ):
 
     # Load Model from state_dict
-    model = arch()
     model.load_state_dict(torch.load(path))
+    model = model.to(device)
     model.eval()
 
+    batches = len(dataloader)
+
+    logger = Logger(1, batches, device)
+
     # Test Model on dataloader
+    for j, data in enumerate(dataloader):
+
+        test_inputs, _ = data
+        print(test_inputs.shape)
+
+        test_loss, test_acc = callbacks[0](
+            model, test_inputs, loss_fn, batches, device, train=False)
+
+        logger.log(0, 0, test_loss, test_acc, 0)
+
+    print(logger)
 
 
 if __name__ == '__main__':
@@ -211,3 +229,7 @@ if __name__ == '__main__':
     callbacks = [omniglotCallBack]
 
     train(model, dl, callbacks, optim, loss_fn, 64, device)
+
+    # test_dl = DataLoader(test_ds, batch_size=20, shuffle=True, drop_last=True)
+    # test(model, 'models/MatchingNets',
+    # test_dl, loss_fn, [omniglotCallBack], device)
