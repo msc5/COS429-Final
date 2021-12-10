@@ -133,15 +133,15 @@ def train(
         )
         for j, (train_dl, test_dl) in enumerate(t):
 
-            inputs, _ = train_dl
+            (s_in, t_in), _ = train_dl
 
             train_loss, train_acc = callbacks[0](
-                model, inputs, loss_fn, batch_size, device, train=True)
+                model, (s_in, t_in), loss_fn, batch_size, device, train=True)
 
-            test_inputs, _ = test_dl
+            (test_s_in, test_t_in), _ = test_dl
 
             test_loss, test_acc = callbacks[0](
-                model, test_inputs, loss_fn, batch_size, device, train=False)
+                model, (test_s_in, test_t_in), loss_fn, batch_size, device, train=False)
 
             logger.log(train_loss, train_acc, test_loss, test_acc, 1)
 
@@ -160,7 +160,7 @@ def omniglotCallBack(model, inputs, loss_fn, batch_size, device, train=True):
     else:
         model.eval()
 
-    outputs = model(inputs)
+    outputs = model(inputs[0], inputs[1])
 
     # Compute Loss
     loss = loss_fn(outputs[1], outputs[0])
@@ -174,7 +174,7 @@ def omniglotCallBack(model, inputs, loss_fn, batch_size, device, train=True):
 
     if train:
         loss.backward()
-        clip_grad_norm_(model.parameters(), 1)
+        # clip_grad_norm_(model.parameters(), 1)
         optim.step()
 
     return l, a
@@ -223,12 +223,12 @@ if __name__ == '__main__':
     dl = DataLoader(ds, batch_size=20, shuffle=True, drop_last=True)
 
     model = arch.MatchingNets(device, 1, 64)
-    optim = optim.Adam(model.parameters(), lr=0.001)
+    optim = optim.Adam(model.parameters(), lr=0.0005)
     loss_fn = nn.CrossEntropyLoss()
 
     callbacks = [omniglotCallBack]
 
-    train(model, dl, callbacks, optim, loss_fn, 64, device)
+    train(model, dl, callbacks, optim, loss_fn, 2**13, device)
 
     # test_dl = DataLoader(test_ds, batch_size=20, shuffle=True, drop_last=True)
     # test(model, 'models/MatchingNets',

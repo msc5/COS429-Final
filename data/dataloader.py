@@ -33,7 +33,9 @@ class OmniglotDataset(Dataset):
         a = i * 20
         b = a + 20
         x = torch.cat([self.ds[j][0].unsqueeze(0) for j in range(a, b)])
-        return x.to(self.device)[0:self.n], i
+        x = x.to(self.device)
+        mask = torch.randperm(20).to(self.device)
+        return (x[mask[0:self.n]], x[mask[self.n:self.n * 2]]), i
 
 
 class Siamese(Dataset):
@@ -70,8 +72,10 @@ if __name__ == '__main__':
     for i, a in enumerate(dl):
         print(
             f'{i:<5}',
-            # a[0][0].shape,
-            a[0][1],
-            # a[1][0].shape,
-            a[1][1],
+            a[0][0][0].shape,
+            a[0][0][1].shape,
+            # a[0][1],
+            a[1][0][0].shape,
+            a[1][0][1].shape,
+            # a[1][1],
         )

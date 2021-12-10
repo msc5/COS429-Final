@@ -79,10 +79,10 @@ class MatchingNets(nn.Module):
         self.classify = Classifier(self.device)
         self.__name__ = 'MatchingNets'
 
-    def forward(self, x):
-        k, n, _, _, _ = x.shape
-        s = self.f(x)
-        t = self.g(x)
+    def forward(self, s, t):
+        k, n, _, _, _ = s.shape
+        s = self.f(s)
+        t = self.g(t)
         dist = self.distance(s, t)
         attn = dist.softmax(dim=1)
         lab, pred = self.classify(attn, (k, n))
@@ -96,5 +96,5 @@ if __name__ == '__main__':
     model = MatchingNets(device, 1, 64).to(device)
     summary(model, input_size=[
         (k, n, 1, 28, 28),
-        (k * n, 1)
+        (k, n, 1, 28, 28)
     ], device=device)
