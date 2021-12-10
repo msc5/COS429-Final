@@ -4,28 +4,29 @@ import torch.nn as nn
 
 from torchinfo import summary
 
-
+# each of which is a 3 × 3 convolution with 64 filters followed by batch normalization [10], a Relu layer, and 2 × 2 max-pooling. padding should be 1 per conv block
 class Conv(nn.Module):
 
     def __init__(self, fi, fo):
         super(Conv, self).__init__()
-        self.seq = nn.Sequential(
-            nn.Conv2d(fi, fo, 3, padding='same'),
+        self.conv_layer = nn.Sequential(
+            nn.Conv2d(fi, fo, 3, padding="same"),
             nn.BatchNorm2d(fo),
             nn.ReLU(),
             nn.MaxPool2d(2),
         )
 
     def forward(self, x):
-        return self.seq(x)
+        return self.conv_layer(x)
 
 
+# if input is c x 28 x 28, output will be 64 x 1 x 1
 class Embed(nn.Module):
 
     def __init__(self, fi, fo):
         super(Embed, self).__init__()
         self.fo = fo
-        self.seq = nn.Sequential(
+        self.embed = nn.Sequential(
             Conv(fi, fo),
             Conv(fo, fo),
             Conv(fo, fo),
@@ -36,7 +37,7 @@ class Embed(nn.Module):
         # x: (kq, nm, c, h, w)
         kq, nm, c, h, w = x.shape
         x = x.view(-1, c, h, w)
-        x = self.seq(x)
+        x = self.embed(x)
         x = x.view(-1, self.fo)
         # x: (kq * nm, fo)
         return x

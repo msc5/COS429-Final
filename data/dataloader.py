@@ -40,7 +40,11 @@ if __name__ == '__main__':
     device = "cuda" if torch.cuda.is_available() else "cpu"
     train_data = OmniglotDataset(background=True, device=device)
     train_dataloader = DataLoader(train_data, batch_size=64, shuffle=True)
-    print(len(train_dataloader.ds), train_dataloader.ds.batch_size)
-    print(len(train_dataloader), train_dataloader.batch_size)
-    for i, a in enumerate(train_dataloader):
-        print(i, a[1].shape, a[1].shape)
+    # print(len(train_dataloader.ds), train_dataloader.ds.batch_size)
+    print(f'Batch Size: {train_dataloader.batch_size}')
+    print(
+        f'Dataloader Length = 964/{train_dataloader.batch_size}: {len(train_dataloader)}')
+    for X, y in train_dataloader:
+        print(f'Shape of X and dtype: {X.shape}, {X.dtype}')
+        print(f'Shape of y and dtype: {y.shape}, {y.dtype}')
+        break

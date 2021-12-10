@@ -1,9 +1,10 @@
 import torch
 import torch.nn as nn
 import torch.optim as optim
+import numpy as np
+from torch.utils.data.dataloader import DataLoader
 
 from torchvision import transforms
-
 from tqdm import tqdm
 
 # System modules
@@ -61,7 +62,7 @@ def train(
     # Use GPU or CPU to train model
     model = model.to(device)
     model.train()
-    torch.cuda.empty_cache()
+    # torch.cuda.empty_cache()
     model.zero_grad()
 
     header(f)
@@ -80,8 +81,31 @@ def train(
         for j, data in enumerate(t):
 
             inputs, labels = data
+            # print()
+            # print(inputs)
+            # print(inputs.shape)
+            # print(labels)
+            # print(labels.shape)
 
+            # _, preds = model(inputs, inputs, labels)
+
+            # print()
+            # preds = preds.cpu().detach().numpy()
+            # print(preds)
+            # print(preds.shape)
+            # outputs = outputs.numpy()
+            # print(outputs)
+            # print()
+            # print(outputs[0])
+            # print(np.sum(outputs[0]))
+            # print(outputs.shape)
+
+            # print()
+            # print(outputs[1])
+            # print(outputs[0])
             outputs = model(inputs, inputs, labels)
+            # print(outputs[1])
+            # print(outputs[0])
 
             loss_tr = loss_fn(outputs[1], outputs[0])
             loss = loss_tr.item()
@@ -125,12 +149,12 @@ def test(
 
 
 if __name__ == '__main__':
-
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    # device = torch.device('cpu')
-    dataloader = data.OmniglotDataLoader(device, 5)
+    device = "cuda" if torch.cuda.is_available() else "cpu"
+    train_dataset = data.OmniglotDataset(background=True, device=device)
+    train_dataloader = DataLoader(train_dataset, batch_size=64, shuffle=True)
     model = arch.MatchingNets(device, 1, 64)
     optim = optim.Adam(model.parameters(), lr=0.01)
     loss_fn = nn.CrossEntropyLoss()
 
-    train(model, dataloader, optim, loss_fn, 10, device)
+    train(model=model, dataloader=train_dataloader, optim=optim,
+          loss_fn=loss_fn, epochs=10, device=device)
