@@ -12,12 +12,13 @@ class OmniglotDataset(Dataset):
 
     def __init__(
             self,
-            device,
+            shots=1,
+            device='cpu',
             background=True,
     ):
         super(OmniglotDataset).__init__()
         self.device = device
-        self.n = 20
+        self.n = shots
         self.ds = Omniglot(
             'datasets/omniglot',
             background=background,
@@ -26,14 +27,13 @@ class OmniglotDataset(Dataset):
         )
 
     def __len__(self):
-        return int(len(self.ds) / self.n)
+        return int(len(self.ds) / 20)
 
     def __getitem__(self, i):
-        a = i * self.n
-        b = a + self.n
-        index = torch.arange(a, b, 1).tolist()
-        x = torch.cat([self.ds[j][0].unsqueeze(0) for j in index])
-        return x.to(self.device), i
+        a = i * 20
+        b = a + 20
+        x = torch.cat([self.ds[j][0].unsqueeze(0) for j in range(a, b)])
+        return x.to(self.device)[0:self.n], i
 
 
 class Siamese(Dataset):
@@ -56,17 +56,22 @@ if __name__ == '__main__':
 
     device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
-    train_ds = OmniglotDataset(background=True, device=device)
-    test_ds = OmniglotDataset(background=False, device=device)
+    train_ds = OmniglotDataset(shots=1, background=True, device=device)
+    test_ds = OmniglotDataset(shots=1, background=False, device=device)
 
     ds = Siamese(train_ds, test_ds)
 
-    dl = DataLoader(ds, batch_size=8, shuffle=True)
+    dl = DataLoader(ds, batch_size=20, shuffle=True, drop_last=True)
 
     print("Train Dataset Length: ", len(train_ds))
     print("Test Dataset Length: ", len(test_ds))
     print("Dataloader Length: ", len(dl))
 
     for i, a in enumerate(dl):
-        print(f'{i:<5}', a[0][0].shape, a[0]
-              [1].shape, a[1][0].shape, a[1][1].shape)
+        print(
+            f'{i:<5}',
+            # a[0][0].shape,
+            a[0][1],
+            # a[1][0].shape,
+            a[1][1],
+        )

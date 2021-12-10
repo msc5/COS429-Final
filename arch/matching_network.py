@@ -84,8 +84,9 @@ class MatchingNets(nn.Module):
         s = self.f(x)
         t = self.g(x)
         dist = self.distance(s, t)
-        lab, pred = self.classify(dist, (k, n))
-        return lab, pred.log()
+        attn = dist.softmax(dim=1)
+        lab, pred = self.classify(attn, (k, n))
+        return lab, pred
 
 
 if __name__ == '__main__':

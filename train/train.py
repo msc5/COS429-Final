@@ -18,6 +18,48 @@ import arch
 import data
 
 
+class Logger:
+
+    def __init__(self, epochs, batches, device):
+        self.epochs = epochs
+        self.batches = batches
+        self.e = 0      # Epoch Count
+        self.b = 0      # Batch Count
+        self.device = device
+        self.base = torch.zeros(epochs, batches, 5).to(device)
+        self.data = [self.base.clone()]
+
+    def log(
+        self,
+        train_loss,
+        train_acc,
+        test_loss,
+        test_acc,
+        elapsed_time
+    ):
+        if self.b == self.batches:
+            self.data.append(self.base.clone())
+            self.b = 0
+            self.e += 1
+        self.data[-1][self.e, self.b, :] = torch.tensor([
+            train_loss, train_acc, test_loss, test_acc, elapsed_time
+        ])
+        self.b += 1
+
+    def __getitem__(self, i):
+        means = self.data[-1][self.e, 0:self.b, :].mean(dim=0)
+        return means
+
+    def __str__(self):
+        train_loss, train_acc, test_loss, test_acc, _ = self[-1]
+        msg = (
+            f'{"":10}{self.e:<8}{self.b:<3} / {self.batches:<6}'
+            f'{train_loss:<10.4f}{train_acc:<10.4f}'
+            f'{test_loss:<10.4f}{test_acc:<10.4f}'
+        )
+        return msg
+
+
 def header(f):
     msg = (
         f'{"":35}{"Train":20}{"Test":20}\n'
@@ -30,11 +72,11 @@ def header(f):
     print(msg)
 
 
-def write_it(i, j, size, loss, acc, test_loss, test_acc, stream=None):
+def write_it(i, j, size, l, a, test_l, test_a, stream=None):
     msg = (
         f'{"":10}{i:<8}{j:<3} / {size:<6}'
-        f'{loss:<10.4f}{acc:<10.4f}'
-        f'{test_loss:<10.4f}{test_acc:<10.4f}'
+        f'{l:<10.4f}{a:<10.4f}'
+        f'{test_l:<10.4f}{test_a:<10.4f}'
     )
     if stream is not None:
         stream.write(msg)
@@ -55,7 +97,10 @@ def train(
     batch_size = dataloader.batch_size
 
     print(device)
-    print(size, batch_size)
+    print(epochs, size, batch_size)
+
+    # Initialize Logger
+    logger = Logger(epochs, size, device)
 
     # Name of model and save location
     name = model.__name__
@@ -77,6 +122,8 @@ def train(
 
     for i in range(1, epochs):
 
+        run_l = 0
+        run_a = 0
         t = tqdm(
             dataloader,
             desc=write_it(i, 0, size, 0, 0, 0, 0),
@@ -88,7 +135,7 @@ def train(
 
             inputs, _ = train_dl
 
-            loss, acc = callbacks[0](
+            train_loss, train_acc = callbacks[0](
                 model, inputs, loss_fn, batch_size, device, train=True)
 
             test_inputs, _ = test_dl
@@ -96,10 +143,11 @@ def train(
             test_loss, test_acc = callbacks[0](
                 model, test_inputs, loss_fn, batch_size, device, train=False)
 
-            t.set_description(
-                write_it(i, j, size, loss, acc, test_loss, test_acc))
+            logger.log(train_loss, train_acc, test_loss, test_acc, 1)
 
-        print(write_it(i, size, size, loss, acc, test_loss, test_acc))
+            t.set_description(str(logger))
+
+        print(logger)
 
     torch.save(model.state_dict(), path)
 
@@ -115,22 +163,21 @@ def omniglotCallBack(model, inputs, loss_fn, batch_size, device, train=True):
     outputs = model(inputs)
 
     # Compute Loss
-    loss_tr = loss_fn(outputs[1], outputs[0])
-    loss = loss_tr.item()
+    loss = loss_fn(outputs[1], outputs[0])
+    l = loss.item()
 
     # Compute Accuracy
-    # print(outputs[0].shape, outputs[1].shape)
     pred = outputs[0].argmax(dim=1)
     lab = outputs[1].argmax(dim=1)
-    correct = torch.sum(lab == pred).to(device)
-    acc = correct / pred.shape[0]
+    correct = torch.sum(lab == pred).data
+    a = (correct / pred.shape[0]).item()
 
     if train:
-        loss_tr.backward()
+        loss.backward()
         clip_grad_norm_(model.parameters(), 1)
         optim.step()
 
-    return loss, acc
+    return l, a
 
 
 def test(
@@ -152,10 +199,10 @@ if __name__ == '__main__':
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     # device = torch.device('cpu')
 
-    train_ds = data.OmniglotDataset(background=True, device=device)
-    test_ds = data.OmniglotDataset(background=False, device=device)
+    train_ds = data.OmniglotDataset(shots=1, background=True, device=device)
+    test_ds = data.OmniglotDataset(shots=1, background=False, device=device)
     ds = data.Siamese(train_ds, test_ds)
-    dl = DataLoader(ds, batch_size=8, shuffle=True)
+    dl = DataLoader(ds, batch_size=20, shuffle=True, drop_last=True)
 
     model = arch.MatchingNets(device, 1, 64)
     optim = optim.Adam(model.parameters(), lr=0.001)
