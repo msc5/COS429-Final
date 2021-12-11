@@ -30,19 +30,12 @@ class Logger:
 
     def log(
         self,
-        train,
-        test,
+        results,
         elapsed_time
     ):
-        train_loss, train_acc = train
-        test_loss, test_acc = test
-        data = torch.tensor([
-            train_loss,
-            train_acc,
-            test_loss,
-            test_acc,
-            elapsed_time
-        ])
+        # train_loss, train_acc = train
+        # test_loss, test_acc = test
+        data = torch.tensor((*results, elapsed_time))
         self.data[self.e, self.b, :] = data
         means = self.data[self.e, 0:self.b + 1, :].mean(dim=0)
         msg = self.msg(means)
@@ -127,12 +120,14 @@ def train(
             bar_format='{desc}|{bar:20}| {rate_fmt}',
             leave=False,
         )
-        for j, data in enumerate(t):
+        for j, (train, test) in enumerate(t):
 
-            train = callbacks[0](model, data[0], loss_fn, train=True)
-            test = callbacks[0](model, data[1], loss_fn, train=False)
+            results = (
+                *callbacks[0](model, data[0], loss_fn, train=True),
+                *callbacks[0](model, data[1], loss_fn, train=False)
+            )
 
-            log = logger.log(train, test, 1)
+            log = logger.log(results, 1)
 
             t.set_description(log)
 
@@ -191,7 +186,7 @@ def omniglotCallBack(model, inputs, loss_fn, train=True):
 
     if train:
         loss_t.backward()
-        # clip_grad_norm_(model.parameters(), 1)
+        clip_grad_norm_(model.parameters(), 1)
         optim.step()
 
     return loss, acc

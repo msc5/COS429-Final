@@ -18,14 +18,14 @@ class ConvBlock(nn.Module):
             fo: Number of filters in conv (64)
         """
         super(ConvBlock, self).__init__()
-        self.stack = nn.Sequential(
-            nn.Conv2d(fi, fo, 3),
+        self.seq = nn.Sequential(
+            nn.Conv2d(fi, fo, 3, padding='same'),
             nn.BatchNorm2d(fo),
             nn.ReLU()
         )
 
     def forward(self, x):
-        return self.stack(x)
+        return self.seq(x)
 
 
 class PoolBlock(nn.Module):
@@ -38,7 +38,7 @@ class PoolBlock(nn.Module):
             fo: Number of filters in conv (64)
         """
         super(PoolBlock, self).__init__()
-        self.stack = nn.Sequential(
+        self.seq = nn.Sequential(
             ConvBlock(fi, fo),
             nn.MaxPool2d(2),
             ConvBlock(fo, fo),
@@ -46,7 +46,7 @@ class PoolBlock(nn.Module):
         )
 
     def forward(self, x):
-        return self.stack(x)
+        return self.seq(x)
 
 
 class Encoder(nn.Module):
@@ -59,14 +59,14 @@ class Encoder(nn.Module):
             fo: Number of filters in conv
         """
         super(Encoder, self).__init__()
-        self.stack = nn.Sequential(
+        self.seq = nn.Sequential(
             PoolBlock(fi, fo),
             ConvBlock(fo, fo),
             ConvBlock(fo, fo)
         )
 
     def forward(self, x):
-        return self.stack(x)
+        return self.seq(x)
 
 
 class Decoder(nn.Module):
@@ -82,7 +82,7 @@ class Decoder(nn.Module):
         """
         super(Decoder, self).__init__()
         self.pool = PoolBlock(2 * fo, fo)
-        self.stack = nn.Sequential(
+        self.seq = nn.Sequential(
             nn.Linear(li, lo),
             nn.ReLU(),
             nn.Linear(lo, lo),
@@ -93,7 +93,7 @@ class Decoder(nn.Module):
         z = torch.cat((x, y), 1)
         z = self.pool(z)
         z = z.view(z.shape[0], -1)
-        z = self.stack(z)
+        z = self.seq(z)
         return z
 
 
