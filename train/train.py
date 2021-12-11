@@ -20,13 +20,13 @@ import data
 
 class Logger:
 
-    def __init__(self, epochs, batches, stream=None):
+    def __init__(self, epochs, batches, path):
         self.epochs = epochs        # Total Epochs
         self.batches = batches      # Total Batches
         self.e = 0                  # Current Epoch
         self.b = 0                  # Current Batch
-        self.stream = stream
         self.data = torch.zeros(epochs, batches, 5)
+        self.path = path
 
     def log(
         self,
@@ -43,34 +43,32 @@ class Logger:
             test_acc,
             elapsed_time
         ])
-        self.check()
         self.data[self.e, self.b, :] = data
-        if self.stream is not None:
-            self.stream.write(self.msg(data))
+        means = self.data[self.e, 0:self.b + 1, :].mean(dim=0)
+        msg = self.msg(means)
         self.b += 1
-        self.check()
-
-    def check(self):
-        if self.b > self.batches:
+        if self.b == self.batches:
             self.b = 0
             self.e += 1
+            torch.save(self.data, self.path)
+        return msg
 
     def msg(self, data):
-        # print(data)
         train_loss, train_acc, test_loss, test_acc, _ = data
         msg = (
-            f'{"":10}{self.e:<8}{self.b:<3} / {self.batches:<6}'
+            f'{"":10}{self.e:<8}{self.b + 1:<3} / {self.batches:<6}'
             f'{train_loss:<10.4f}{train_acc:<10.4f}'
             f'{test_loss:<10.4f}{test_acc:<10.4f}'
         )
         return msg
 
-    def __getitem__(self, i):
-        means = self.data[self.e, 0:self.b, :].mean(dim=0)
-        return means
+    # def __getitem__(self, i):
+    #     rad = self.b if self.b != self.batches else self.batches - 1
+    #     means = self.data[self.e, 0:rad, :].mean(dim=0)
+    #     return means
 
-    def __str__(self):
-        return self.msg(self[-1])
+    # def __str__(self):
+    #     return self.msg(self[-1])
 
     def header(self):
         msg = (
@@ -80,8 +78,6 @@ class Logger:
             f'{"Loss":10}{"Accuracy":10}'
             f'{"Elapsed Time":15}\n'
         )
-        if self.stream is not None:
-            self.stream.write(msg)
         return msg
 
 
@@ -103,17 +99,17 @@ def train(
 
     # Name of model and save location
     name = model.__name__
-    path = os.path.join('models', name + '2')
+    path = os.path.join('models', name + '3')
     if not os.path.exists('models'):
         os.makedirs('models')
 
-    # Write file stream
+    # Log save location
     if not os.path.exists('logs'):
         os.makedirs('logs')
-    f = io.open(os.path.join('logs', name + '_log'), 'a')
+    log_path = os.path.join('logs', name + '_log')
 
     # Initialize Logger
-    logger = Logger(epochs, batches, stream=f)
+    logger = Logger(epochs, batches, log_path)
 
     # Use GPU or CPU to train model
     model = model.to(device)
@@ -125,11 +121,8 @@ def train(
 
     for i in range(1, epochs):
 
-        run_l = 0
-        run_a = 0
         t = tqdm(
             dataloader,
-            desc=str(logger),
             colour='cyan',
             bar_format='{desc}|{bar:20}| {rate_fmt}',
             leave=False,
@@ -139,11 +132,11 @@ def train(
             train = callbacks[0](model, data[0], loss_fn, train=True)
             test = callbacks[0](model, data[1], loss_fn, train=False)
 
-            logger.log(train, test, 1)
+            log = logger.log(train, test, 1)
 
-            t.set_description(str(logger))
+            t.set_description(log)
 
-        print(logger)
+        print(log)
         torch.save(model.state_dict(), path)
 
 
