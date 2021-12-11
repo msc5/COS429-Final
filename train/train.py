@@ -104,11 +104,17 @@ def train(
             # print(outputs[1])
             # print(outputs[0])
             outputs = model(inputs, inputs, labels)
-            # print(outputs[1])
-            # print(outputs[0])
+            print()
+            print(f'loss fn predictions: {outputs[1]}')
+            print(f'loss fn targets: {outputs[0]}')
+            print(outputs[1].shape)
+            print(outputs[0].shape)
 
             loss_tr = loss_fn(outputs[1], outputs[0])
+            print(loss_tr)
             loss = loss_tr.item()
+            print(loss)
+            break
 
             loss_tr.backward()
             optim.step()
@@ -121,9 +127,10 @@ def train(
 
             t.set_description(write_it(i, j, size, loss, acc))
 
+        break
         print(write_it(i, size, size, loss, acc))
 
-    torch.save(model.state_dict(), path)
+    # torch.save(model.state_dict(), path)
 
 
 # def (outputs):
