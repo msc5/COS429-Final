@@ -5,9 +5,6 @@ from torchinfo import summary
 
 from .relation_network import ConvBlock, PoolBlock
 
-# This model implements the theory that similarity
-# should be derived from all levels of encoder feature maps, not just one
-
 
 class MultiBlock(nn.Module):
 
@@ -21,6 +18,16 @@ class MultiBlock(nn.Module):
         return x, y
 
 
+class Meta(nn.Module):
+
+    def __init__(self, fi, fo):
+        super(Meta, self).__init__()
+        self.seq = nn.Sequential(
+            ConvBlock(fi, fo),
+            ConvBlock(fo, fo)
+        )
+
+
 class Decoder(nn.Module):
 
     def __init__(self, fo, lo):
@@ -29,12 +36,9 @@ class Decoder(nn.Module):
         Arguments:
             fi: Number of channels in input
             fo: Number of filters in conv
-            li: Number of input features in linear layer
-            lo: Number of output features in linear layer
         """
         super(Decoder, self).__init__()
         self.pool = PoolBlock(2 * fo, fo)
-        self.lo = lo
 
     def forward(self, x, y):
         z = torch.cat((x, y), 1)
@@ -52,20 +56,28 @@ class Decoder(nn.Module):
 
 class CustomNetwork(nn.Module):
 
-    def __init__(self, fi):
+    def __init__(self, fi, fo):
         super(CustomNetwork, self).__init__()
-        fo = 64
-        self.pool = MultiBlock(PoolBlock(fi, fo))
-        self.conv = MultiBlock(ConvBlock(fo, fo))
-        self.dec = Decoder(fo)
+        self.list = nn.ModuleList([
+            MultiBlock(ConvBlock(fi, fo)),
+            MultiBlock(ConvBlock(fo, fo)),
+            MultiBlock(ConvBlock(fo, fo)),
+        ])
 
     def forward(self, x, y):
-        x, y = self.pool(x, y)
-        z = self.dec(x, y)
-        x, y = self.conv(x, y)
-        w = self.dec(x, y)
+        k, n, c, h, w = x.shape
+        x = x.view(-1, c, h, w)
+        y = y.view(-1, c, h, w)
+        maps = torch.empty()
+        for i, m in enumerate(self.list):
+            x, y = m(x, y)
+            z = torch.cat((x, y), dim=1)
+            maps.append(z)
+        maps = torch.cat(maps, dim=1)
+        print(maps.shape)
 
 
 if __name__ == '__main__':
-    model = CustomNetwork(1)
-    summary(model, input_size=[(1, 105, 105), (1, 105, 105)])
+    device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
+    model = CustomNetwork(1, 64).to(device)
+    summary(model, input_size=[(20, 5, 1, 105, 105), (20, 5, 1, 105, 105)])
