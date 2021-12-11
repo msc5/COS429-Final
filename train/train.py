@@ -104,6 +104,8 @@ def train(
     # Name of model and save location
     name = model.__name__
     path = os.path.join('models', name + '2')
+    if not os.path.exists('models'):
+        os.makedirs('models')
 
     # Write file stream
     if not os.path.exists('logs'):
@@ -138,7 +140,6 @@ def train(
             test = callbacks[0](model, data[1], loss_fn, train=False)
 
             logger.log(train, test, 1)
-            logger.step()
 
             t.set_description(str(logger))
 
@@ -172,7 +173,6 @@ def test(
 
         logger.log((0, 0), test_res, 0)
         print(logger)
-        logger.step()
 
     print(logger)
 
@@ -189,7 +189,7 @@ def omniglotCallBack(model, inputs, loss_fn, train=True):
     (pred, lab) = model(s, q)
 
     # Compute Loss
-    loss_t = loss_fn(outputs[1], outputs[0])
+    loss_t = loss_fn(pred, lab)
     loss = loss_t.item()
 
     # Compute Accuracy
@@ -222,7 +222,15 @@ if __name__ == '__main__':
 
     callbacks = [omniglotCallBack]
 
-    train(model, dl, callbacks, optim, loss_fn, 2**13, device)
+    train(
+        model,
+        dl,
+        callbacks,
+        optim,
+        loss_fn,
+        2**13,
+        device
+    )
 
     # test_dl = DataLoader(test_ds, batch_size=20,
     #                      shuffle=True, drop_last=True)
