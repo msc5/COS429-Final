@@ -50,7 +50,7 @@ class Classifier(nn.Module):
         k, n = shapes
         y = torch.eye(k).repeat_interleave(n, dim=0).to(self.device)
         pred = torch.mm(x, y)
-        return y, pred
+        return pred, y
 
 
 class Distance(nn.Module):
@@ -85,8 +85,8 @@ class MatchingNets(nn.Module):
         t = self.g(t)
         dist = self.distance(s, t)
         attn = dist.softmax(dim=1)
-        lab, pred = self.classify(attn, (k, n))
-        return lab, pred
+        pred, lab = self.classify(attn, (k, n))
+        return pred, lab
 
 
 if __name__ == '__main__':

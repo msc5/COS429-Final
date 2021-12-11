@@ -36,30 +36,27 @@ class Logger:
     ):
         train_loss, train_acc = train
         test_loss, test_acc = test
-        # if self.b == self.batches:
-        #     self.b = 0
-        #     self.e += 1
         data = torch.tensor([
             train_loss,
-            train_acc / self.batches,
+            train_acc,
             test_loss,
-            test_acc / self.batches,
+            test_acc,
             elapsed_time
         ])
+        self.check()
         self.data[self.e, self.b, :] = data
         if self.stream is not None:
             self.stream.write(self.msg(data))
-        self.step()
-        # self.b += 1
-
-    def step(self):
-        # print(self.b)
         self.b += 1
-        if self.b == self.batches:
+        self.check()
+
+    def check(self):
+        if self.b > self.batches:
             self.b = 0
             self.e += 1
 
     def msg(self, data):
+        # print(data)
         train_loss, train_acc, test_loss, test_acc, _ = data
         msg = (
             f'{"":10}{self.e:<8}{self.b:<3} / {self.batches:<6}'
@@ -84,7 +81,7 @@ class Logger:
             f'{"Elapsed Time":15}\n'
         )
         if self.stream is not None:
-            self.stream.write(self.msg(data))
+            self.stream.write(msg)
         return msg
 
 
@@ -141,6 +138,7 @@ def train(
             test = callbacks[0](model, data[1], loss_fn, train=False)
 
             logger.log(train, test, 1)
+            logger.step()
 
             t.set_description(str(logger))
 
@@ -163,15 +161,18 @@ def test(
     model.eval()
 
     batches = len(dataloader)
+    print(batches)
 
-    logger = Logger(1, batches, device)
+    logger = Logger(1, batches)
 
     # Test Model on dataloader
     for j, data in enumerate(dataloader):
 
-        test = callbacks[0](model, data, loss_fn, train=False)
+        test_res = callbacks[0](model, data, loss_fn, train=False)
 
-        logger.log((0, 0), test, 0)
+        logger.log((0, 0), test_res, 0)
+        print(logger)
+        logger.step()
 
     print(logger)
 
@@ -185,23 +186,22 @@ def omniglotCallBack(model, inputs, loss_fn, train=True):
         model.eval()
 
     (s, q), _ = inputs
-    outputs = model(s, q)
+    (pred, lab) = model(s, q)
 
     # Compute Loss
     loss_t = loss_fn(outputs[1], outputs[0])
     loss = loss_t.item()
 
     # Compute Accuracy
-    pred = outputs[0].argmax(dim=1)
-    lab = outputs[1].argmax(dim=1)
-    correct = torch.sum(lab == pred).data
+    correct = torch.sum(pred.argmax(dim=1) == lab.argmax(dim=1)).item()
+    acc = correct / pred.shape[0]
 
     if train:
         loss_t.backward()
         # clip_grad_norm_(model.parameters(), 1)
         optim.step()
 
-    return loss, correct
+    return loss, acc
 
 
 if __name__ == '__main__':
@@ -222,9 +222,9 @@ if __name__ == '__main__':
 
     callbacks = [omniglotCallBack]
 
-    # train(model, dl, callbacks, optim, loss_fn, 2**13, device)
+    train(model, dl, callbacks, optim, loss_fn, 2**13, device)
 
-    test_dl = DataLoader(test_ds, batch_size=20,
-                         shuffle=True, drop_last=True)
-    test(model, 'models/MatchingNets',
-         test_dl, loss_fn, [omniglotCallBack], device)
+    # test_dl = DataLoader(test_ds, batch_size=20,
+    #                      shuffle=True, drop_last=True)
+    # test(model, 'models/MatchingNets',
+    #      test_dl, loss_fn, [omniglotCallBack], device)

@@ -1,7 +1,7 @@
 import torch
 import torch.nn as nn
 
-from torchsummary import summary
+from torchinfo import summary
 
 
 # The following Classes are implemented as described
