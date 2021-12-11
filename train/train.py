@@ -33,8 +33,6 @@ class Logger:
         results,
         elapsed_time
     ):
-        # train_loss, train_acc = train
-        # test_loss, test_acc = test
         data = torch.tensor((*results, elapsed_time))
         self.data[self.e, self.b, :] = data
         means = self.data[self.e, 0:self.b + 1, :].mean(dim=0)
@@ -79,6 +77,7 @@ def train(
         dataloader,
         callbacks,
         optim,
+        scheduler,
         loss_fn,
         epochs,
         device,
@@ -123,8 +122,8 @@ def train(
         for j, (train, test) in enumerate(t):
 
             results = (
-                *callbacks[0](model, data[0], loss_fn, train=True),
-                *callbacks[0](model, data[1], loss_fn, train=False)
+                *callbacks[0](model, train, loss_fn, train=True),
+                *callbacks[0](model, test, loss_fn, train=False)
             )
 
             log = logger.log(results, 1)
@@ -133,6 +132,7 @@ def train(
 
         print(log)
         torch.save(model.state_dict(), path)
+        scheduler.step()
 
 
 def test(
@@ -206,6 +206,7 @@ if __name__ == '__main__':
 
     model = arch.MatchingNets(device, 1, 64)
     optim = optim.Adam(model.parameters(), lr=0.0005)
+    scheduler = torch.optim.lr_scheduler.MultiStepLR(optim, [250, 1000])
     loss_fn = nn.CrossEntropyLoss()
 
     callbacks = [omniglotCallBack]
@@ -215,6 +216,7 @@ if __name__ == '__main__':
         dl,
         callbacks,
         optim,
+        scheduler,
         loss_fn,
         2**13,
         device

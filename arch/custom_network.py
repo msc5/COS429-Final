@@ -8,13 +8,14 @@ from .relation_network import ConvBlock, PoolBlock
 
 class MultiBlock(nn.Module):
 
-    def __init__(self, op):
+    def __init__(self, f, g):
         super(MultiBlock, self).__init__()
-        self.op = op
+        self.f = f
+        self.g = g
 
     def forward(self, x, y):
-        x = self.op(x)
-        y = self.op(y)
+        x = self.f(x)
+        y = self.g(y)
         return x, y
 
 
@@ -23,8 +24,8 @@ class Meta(nn.Module):
     def __init__(self, fi, fo):
         super(Meta, self).__init__()
         self.seq = nn.Sequential(
-            ConvBlock(fi, fo),
-            ConvBlock(fo, fo)
+            Conv(fi, fo),
+            Conv(fo, fo)
         )
 
 
@@ -56,28 +57,37 @@ class Decoder(nn.Module):
 
 class CustomNetwork(nn.Module):
 
-    def __init__(self, fi, fo):
+    def __init__(self, fi, fo, device='cpu'):
         super(CustomNetwork, self).__init__()
+        self.device = device
+        self.pool = MultiBlock(
+            PoolBlock(fi, fo),
+            PoolBlock(fi, fo)
+        )
         self.list = nn.ModuleList([
-            MultiBlock(ConvBlock(fi, fo)),
-            MultiBlock(ConvBlock(fo, fo)),
-            MultiBlock(ConvBlock(fo, fo)),
+            MultiBlock(
+                ConvBlock(fo, fo),
+                ConvBlock(fo, fo)
+            ) for _ in range(3)
         ])
 
     def forward(self, x, y):
         k, n, c, h, w = x.shape
         x = x.view(-1, c, h, w)
         y = y.view(-1, c, h, w)
-        maps = torch.empty()
+        x, y = self.pool(x, y)
+        w = []
         for i, m in enumerate(self.list):
             x, y = m(x, y)
             z = torch.cat((x, y), dim=1)
-            maps.append(z)
-        maps = torch.cat(maps, dim=1)
+            w.append(z)
+        maps = torch.cat(w, dim=1)
         print(maps.shape)
+        return maps
 
 
 if __name__ == '__main__':
+    torch.cuda.empty_cache()
     device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
-    model = CustomNetwork(1, 64).to(device)
-    summary(model, input_size=[(20, 5, 1, 105, 105), (20, 5, 1, 105, 105)])
+    model = CustomNetwork(1, 64, device).to(device)
+    summary(model, input_size=[(20, 1, 1, 105, 105), (20, 1, 1, 105, 105)])
