@@ -32,8 +32,8 @@ class OmniglotDataset(Dataset):
     def __getitem__(self, i):
         a = i * 20
         b = a + 20
-        x = torch.cat([self.ds[j][0].unsqueeze(0) for j in range(a, b)])
-        x = x.unsqueeze(0).to(self.device)
+        x = torch.cat([self.ds[j][0].unsqueeze(0)
+                      for j in range(a, b)]).to(self.device)
         mask = torch.randperm(20).to(self.device)
         return (x[mask[0:self.n]], x[mask[self.n:self.n * 2]]), i
 
