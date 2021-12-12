@@ -55,10 +55,19 @@ class Siamese(Dataset):
 
 
 if __name__ == '__main__':
+    device = "cuda" if torch.cuda.is_available() else "cpu"
+    # train_data = OmniglotDataset(background=True, device=device)
+    # train_dataloader = DataLoader(train_data, batch_size=64, shuffle=True)
+    # # print(len(train_dataloader.ds), train_dataloader.ds.batch_size)
+    # print(f'Batch Size: {train_dataloader.batch_size}')
+    # print(
+    #     f'Dataloader Length = 964/{train_dataloader.batch_size}: {len(train_dataloader)}')
+    # for X, y in train_dataloader:
+    #     print(f'Shape of X and dtype: {X.shape}, {X.dtype}')
+    #     print(f'Shape of y and dtype: {y.shape}, {y.dtype}')
+    #     break
 
-    device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
-
-    train_ds = OmniglotDataset(shots=1, background=True, device=device)
+    train_ds = OmniglotDataset(shots=3, background=True, device=device)
     test_ds = OmniglotDataset(shots=1, background=False, device=device)
 
     ds = Siamese(train_ds, test_ds)
@@ -70,6 +79,21 @@ if __name__ == '__main__':
     print("Dataloader Length: ", len(dl))
 
     for i, a in enumerate(dl):
+        # a[0] is the training dataset with a length of 2
+        # a[0][0] is a list containing the support and query set of this batch, a[0][1] are the classes only in this batch
+        # a[1] is the testing dataset
+
+        if i == 0:
+            print(f'a[0][0]')
+            # grabs a list of length 2 containing the support and query set
+            print(a[0][0])
+            print()
+            print(f'a[0][0][0]')  # grabs the support set
+            print(a[0][0][0])
+            # print(a[0][1]) # grabs the tensor array containing all classes only in this batch
+            # print(a[0][1][0]) # grabs first class of this batch
+            print()
+
         print(
             f'{i:<5}',
             tuple(a[0][0][0].shape),

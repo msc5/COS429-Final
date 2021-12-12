@@ -1,6 +1,8 @@
 import torch
 import torch.nn as nn
 import torch.optim as optim
+import numpy as np
+from torch.utils.data.dataloader import DataLoader
 
 from torch.utils.data import DataLoader
 from torch.nn.utils import clip_grad_norm_
@@ -111,7 +113,7 @@ def train(
     print(logger.header())
     tic = time.perf_counter()
 
-    for i in range(1, epochs):
+    for i in range(epochs):
 
         t = tqdm(
             dataloader,
@@ -133,38 +135,44 @@ def train(
         scheduler.step()
 
 
-def test(
-        model,
-        name,
-        dataloader,
-        loss_fn,
-        callback,
-        device
-):
+# def test(
+#         model,
+#         name,
+#         dataloader,
+#         loss_fn,
+#         callback,
+#         device
+# ):
 
-    # Load Model from state_dict
-    dir = os.path.join('saves', name)
-    if not os.path.exists(dir):
-        print(f'{name} does not exist')
-    model_path = os.path.join(dir, 'model')
-    model.load_state_dict(torch.load(model_path))
-    model = model.to(device)
+#     # Load Model from state_dict
+#     dir = os.path.join('saves', name)
+#     if not os.path.exists(dir):
+#         print(f'{name} does not exist')
+#     model_path = os.path.join(dir, 'model')
+#     model.load_state_dict(torch.load(model_path))
+#     model = model.to(device)
 
-    batches = len(dataloader)
-    print(batches)
+#     batches = len(dataloader)
+#     print(batches)
 
-    log_path = os.path.join(dir, 'log_test')
-    logger = Logger(1, batches, log_path)
+#     log_path = os.path.join(dir, 'log_test')
+#     logger = Logger(1, batches, log_path)
 
-    # Test Model on dataloader
-    for j, data in enumerate(dataloader):
+#             # Compute predictions
+#             if name == "RelationNetwork":
+#                 pred = model(sup_set, query_set)
+#                 target_labels = torch.eye(num_classes).repeat_interleave(query_num_examples_per_class, dim=0).to(device)
+#             elif name == "MatchingNets":
+#                 outputs = model(sup_set, query_set)
+#                 pred = outputs[1]
+#                 target_labels = outputs[0]
 
-        results = callback(model, data, None, loss_fn, train=False)
+#         results = callback(model, data, None, loss_fn, train=False)
 
-        log = logger.log((0, 0, *results), 1)
-        print(log)
+#         log = logger.log((0, 0, *results), 1)
+#         print(log)
 
-    print(log)
+#     print(log)
 
 
 def omniglotCallBack(
@@ -182,10 +190,15 @@ def omniglotCallBack(
         model.eval()
 
     (s, q), _ = inputs
-    (pred, lab) = model(s, q)
+    pred = model(s, q)
+
+    k = int(pred.shape[1])
+    n = int(pred.shape[0] / k)
+
+    lab = torch.eye(k).repeat_interleave(n, dim=0).to(device)
 
     # Compute Loss
-    loss_t = loss_fn(pred, lab.argmax(dim=1))
+    loss_t = loss_fn(pred, lab)
     loss = loss_t.item()
 
     # Compute Accuracy
@@ -201,24 +214,31 @@ def omniglotCallBack(
 
 
 if __name__ == '__main__':
+    device = "cuda" if torch.cuda.is_available() else "cpu"
 
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    # device = torch.device('cpu')
+    num_classes = 20
+    num_examples_per_class = 1
+    # train_dataset = data.OmniglotDataset(background=True, device=device)
+    # train_dataloader = DataLoader(train_dataset, batch_size=64, shuffle=True)
 
     train_ds = data.OmniglotDataset(
-        shots=1, background=True, device=device)
+        shots=num_examples_per_class, background=True, device=device)
     test_ds = data.OmniglotDataset(
-        shots=1, background=False, device=device)
+        shots=num_examples_per_class, background=False, device=device)
     ds = data.Siamese(train_ds, test_ds)
     dataloader = DataLoader(ds, batch_size=20, shuffle=True, drop_last=True)
 
-    model = arch.MatchingNets(device, 1, 64)
+    # model = arch.MatchingNets(device, 1, 64)
+    model = arch.RelationNetwork(
+        1, 64, 128, 64, 64, 20, 1
+    )
     model.__name__ = model.__name__ + input('Model Name:\n')
     print(f'Training {model.__name__}')
     optimizer = optim.Adam(model.parameters(), lr=0.0005)
     scheduler = optim.lr_scheduler.MultiStepLR(optimizer, [40, 250, 1000])
     # loss_fn = nn.CrossEntropyLoss()
-    loss_fn = nn.NLLLoss()
+    # loss_fn = nn.NLLLoss()
+    loss_fn = nn.MSELoss()
 
     print('=' * 120)
 
