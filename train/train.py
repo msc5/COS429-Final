@@ -15,7 +15,11 @@ import arch
 import data
 
 # Train the model
-def train(dataloader, model, loss_fn, optimizer, query_num_examples_per_class, num_classes):
+
+
+def train(dataloader, model, loss_fn, optimizer, query_num_examples_per_class, num_classes, device):
+
+    model = model.to(device)
     model.train()
 
     # Name of model and save location
@@ -28,13 +32,14 @@ def train(dataloader, model, loss_fn, optimizer, query_num_examples_per_class, n
     # optimizer.zero_grad()
     for batch, data in enumerate(dataloader):
         (sup_set, query_set), _ = data[0]
-        
+
         sup_set, query_set = sup_set.to(device), query_set.to(device)
-        
+
         # Compute predictions
         if name == "RelationNetwork":
             pred = model(sup_set, query_set)
-            target_labels = torch.eye(num_classes).repeat_interleave(query_num_examples_per_class, dim=0).to(device)
+            target_labels = torch.eye(num_classes).repeat_interleave(
+                query_num_examples_per_class, dim=0).to(device)
         elif name == "MatchingNets":
             outputs = model(sup_set, query_set)
             pred = outputs[1]
@@ -56,7 +61,8 @@ def train(dataloader, model, loss_fn, optimizer, query_num_examples_per_class, n
             correct = torch.sum(target_labels == pred).data
             accuracy = correct/pred.shape[0]
 
-            print(f"Batch {batch + 1}/{num_batches} - Training Loss: {loss:>4f}  Training Accuracy: {(100*accuracy):>0.1f}%")
+            print(
+                f"Batch {batch + 1}/{num_batches} - Training Loss: {loss:>4f}  Training Accuracy: {(100*accuracy):>0.1f}%")
 
     torch.save(model.state_dict(), path)
 
@@ -64,7 +70,7 @@ def train(dataloader, model, loss_fn, optimizer, query_num_examples_per_class, n
 # Test the model
 def test(dataloader, model, loss_fn, query_num_examples_per_class, num_classes):
     # size is no longer total guess bc we drop the last batch as it is not batch_size=20 long; must calculate total guesses
-    # size = len(dataloader.dataset) 
+    # size = len(dataloader.dataset)
     num_batches = len(dataloader)
     name = model.__name__
 
@@ -76,34 +82,36 @@ def test(dataloader, model, loss_fn, query_num_examples_per_class, num_classes):
     with torch.no_grad():
         for test_data in dataloader:
             (sup_set, query_set), _ = test_data
-            
+
             sup_set, query_set = sup_set.to(device), query_set.to(device)
 
             # Compute predictions
             if name == "RelationNetwork":
                 pred = model(sup_set, query_set)
-                target_labels = torch.eye(num_classes).repeat_interleave(query_num_examples_per_class, dim=0).to(device)
+                target_labels = torch.eye(num_classes).repeat_interleave(
+                    query_num_examples_per_class, dim=0).to(device)
             elif name == "MatchingNets":
                 outputs = model(sup_set, query_set)
                 pred = outputs[1]
                 target_labels = outputs[0]
 
             test_loss += loss_fn(pred, target_labels).item()
-            
+
             # Compute Accuracy
             pred = pred.argmax(dim=1)
             target_labels = target_labels.argmax(dim=1)
             correct += torch.sum(target_labels == pred).data.type(torch.float)
             total_guesses += pred.shape[0]
-    
+
     test_loss /= num_batches
     correct /= total_guesses
-    print(f"Test Error: \n  Avg Test Loss: {test_loss:>8f},   Test Accuracy: {(100*correct):>0.1f}% \n")
+    print(
+        f"Test Error: \n  Avg Test Loss: {test_loss:>8f},   Test Accuracy: {(100*correct):>0.1f}% \n")
 
 
 if __name__ == '__main__':
     device = "cuda" if torch.cuda.is_available() else "cpu"
-
+    print(f"device: {device}")
     num_classes = 20
     num_examples_per_class = 1
     # train_dataset = data.OmniglotDataset(background=True, device=device)
@@ -117,10 +125,12 @@ if __name__ == '__main__':
     # batch size is the number of classes in the support set
     dl = DataLoader(ds, batch_size=num_classes, shuffle=True, drop_last=True)
 
-    test_dataloader = DataLoader(test_ds, batch_size=num_classes, shuffle=False, drop_last=True)
+    test_dataloader = DataLoader(
+        test_ds, batch_size=num_classes, shuffle=False, drop_last=True)
 
     # model = arch.MatchingNets(device, 1, 64).to(device)
-    model = arch.RelationNetwork(1, 64, 128, 64, 64, num_classes, num_examples_per_class)
+    model = arch.RelationNetwork(
+        device, 1, 64, 128, 64, 64, num_classes, num_examples_per_class)
 
     if model.__name__ == "RelationNetwork":
         optimizer = optim.Adam(model.parameters(), lr=10e-3)
@@ -128,7 +138,8 @@ if __name__ == '__main__':
     elif model.__name__ == "MatchingNets":
         # was lr=0.0005
         optimizer = optim.Adam(model.parameters(), lr=0.001)
-        scheduler = optim.lr_scheduler.MultiStepLR(optimizer, [100, 200, 300, 400])
+        scheduler = optim.lr_scheduler.MultiStepLR(
+            optimizer, [100, 200, 300, 400])
         loss_fn = nn.CrossEntropyLoss()
 
     # Train model for 10 epochs
@@ -136,9 +147,11 @@ if __name__ == '__main__':
 
     for t in range(epochs):
         print(f"Epoch {t+1}\n-------------------------------")
-        train(dl, model, loss_fn, optimizer, num_examples_per_class, num_classes)
+        train(dl, model, loss_fn, optimizer,
+              num_examples_per_class, num_classes, device)
         print()
-        test(test_dataloader, model, loss_fn, num_examples_per_class, num_classes)
+        test(test_dataloader, model, loss_fn,
+             num_examples_per_class, num_classes)
         # scheduler.step()
-    
+
     print("Done!")
