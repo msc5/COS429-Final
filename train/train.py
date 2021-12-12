@@ -205,6 +205,10 @@ if __name__ == '__main__':
     dl = DataLoader(ds, batch_size=20, shuffle=True, drop_last=True)
 
     model = arch.MatchingNets(device, 1, 64)
+    # num_classes = 20
+    # num_examples_per_class = 1
+    # model = arch.RelationNetwork(
+    #     device, 1, 64, 128, 64, 64, num_classes, num_examples_per_class)
     optim = optim.Adam(model.parameters(), lr=0.0005)
     scheduler = torch.optim.lr_scheduler.MultiStepLR(optim, [250, 1000])
     loss_fn = nn.CrossEntropyLoss()
