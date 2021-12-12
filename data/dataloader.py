@@ -33,7 +33,7 @@ class OmniglotDataset(Dataset):
         a = i * 20
         b = a + 20
         x = torch.cat([self.ds[j][0].unsqueeze(0) for j in range(a, b)])
-        x = x.to(self.device)
+        x = x.unsqueeze(0).to(self.device)
         mask = torch.randperm(20).to(self.device)
         return (x[mask[0:self.n]], x[mask[self.n:self.n * 2]]), i
 
@@ -72,10 +72,8 @@ if __name__ == '__main__':
     for i, a in enumerate(dl):
         print(
             f'{i:<5}',
-            a[0][0][0].shape,
-            a[0][0][1].shape,
-            # a[0][1],
-            a[1][0][0].shape,
-            a[1][0][1].shape,
-            # a[1][1],
+            tuple(a[0][0][0].shape),
+            tuple(a[0][0][1].shape),
+            tuple(a[1][0][0].shape),
+            tuple(a[1][0][1].shape),
         )

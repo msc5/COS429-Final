@@ -47,9 +47,9 @@ class Classifier(nn.Module):
         super(Classifier, self).__init__()
 
     def forward(self, x, shapes):
-        k, n = shapes
+        k, n, q, m = shapes
         y = torch.eye(k).repeat_interleave(n, dim=0).to(self.device)
-        pred = torch.mm(x, y)
+        pred = torch.mm(x, y).log()
         return pred, y
 
 
@@ -59,11 +59,10 @@ class Distance(nn.Module):
         super(Distance, self).__init__()
 
     def forward(self, s, t):
-        # L2 distance
         n, q = s.shape[0], t.shape[0]
         dist = (
-            - s.unsqueeze(1).expand(n, q, -1)
-            + t.unsqueeze(0).expand(n, q, -1)
+            t.unsqueeze(0).expand(n, q, -1) -
+            s.unsqueeze(1).expand(n, q, -1)
         ).pow(2).sum(dim=2).T
         return dist
 
@@ -81,20 +80,23 @@ class MatchingNets(nn.Module):
 
     def forward(self, s, t):
         k, n, _, _, _ = s.shape
+        q, m, _, _, _ = t.shape
         s = self.f(s)
         t = self.g(t)
-        dist = self.distance(s, t)
+        dist = -self.distance(s, t)
         attn = dist.softmax(dim=1)
-        pred, lab = self.classify(attn, (k, n))
+        pred, lab = self.classify(attn, (k, n, q, m))
         return pred, lab
 
 
 if __name__ == '__main__':
-    n = 10
     k = 8
+    n = 10
+    q = 3
+    m = 1
     device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
     model = MatchingNets(device, 1, 64).to(device)
     summary(model, input_size=[
         (k, n, 1, 28, 28),
-        (k, n, 1, 28, 28)
+        (q, m, 1, 28, 28)
     ], device=device)

@@ -9,9 +9,9 @@ from torchvision import transforms
 
 from tqdm import tqdm
 
-# System modules
 import os
 import io
+import time
 
 # Our modules
 import arch
@@ -20,13 +20,13 @@ import data
 
 class Logger:
 
-    def __init__(self, epochs, batches, path):
+    def __init__(self, epochs, batches, path=None):
         self.epochs = epochs        # Total Epochs
         self.batches = batches      # Total Batches
         self.e = 0                  # Current Epoch
         self.b = 0                  # Current Batch
-        self.data = torch.zeros(epochs, batches, 5)
         self.path = path
+        self.data = torch.zeros(epochs, batches, 5)
 
     def log(
         self,
@@ -41,7 +41,8 @@ class Logger:
         if self.b == self.batches:
             self.b = 0
             self.e += 1
-            torch.save(self.data, self.path)
+            if self.path is not None:
+                torch.save(self.data, self.path)
         return msg
 
     def msg(self, data):
@@ -52,14 +53,6 @@ class Logger:
             f'{test_loss:<10.4f}{test_acc:<10.4f}'
         )
         return msg
-
-    # def __getitem__(self, i):
-    #     rad = self.b if self.b != self.batches else self.batches - 1
-    #     means = self.data[self.e, 0:rad, :].mean(dim=0)
-    #     return means
-
-    # def __str__(self):
-    #     return self.msg(self[-1])
 
     def header(self):
         msg = (
@@ -75,8 +68,8 @@ class Logger:
 def train(
         model,
         dataloader,
-        callbacks,
-        optim,
+        callback,
+        optimizer,
         scheduler,
         loss_fn,
         epochs,
@@ -89,27 +82,34 @@ def train(
     print(device)
     print(epochs, batches, batch_size)
 
-    # Name of model and save location
+    # Setup files
     name = model.__name__
-    path = os.path.join('models', name + '3')
-    if not os.path.exists('models'):
-        os.makedirs('models')
-
-    # Log save location
-    if not os.path.exists('logs'):
-        os.makedirs('logs')
-    log_path = os.path.join('logs', name + '_log')
+    dir = os.path.join('saves', name)
+    model_path = os.path.join(dir, 'model')
+    log_path = os.path.join(dir, 'log')
+    if not os.path.exists('saves'):
+        os.makedirs('saves')
+    if os.path.exists(dir):
+        ans = input(
+            f'{name} has already been trained. Overwrite save files? (y/n)\n',
+        )
+        if ans == 'y' or ans == 'Y':
+            pass
+        else:
+            return
+    else:
+        os.makedirs(dir)
 
     # Initialize Logger
     logger = Logger(epochs, batches, log_path)
 
     # Use GPU or CPU to train model
     model = model.to(device)
-    model.train()
     model.zero_grad()
 
     # Print header
     print(logger.header())
+    tic = time.perf_counter()
 
     for i in range(1, epochs):
 
@@ -120,56 +120,64 @@ def train(
             leave=False,
         )
         for j, (train, test) in enumerate(t):
-
             results = (
-                *callbacks[0](model, train, loss_fn, train=True),
-                *callbacks[0](model, test, loss_fn, train=False)
+                *callback(model, train, optimizer, loss_fn, train=True),
+                *callback(model, test, None, loss_fn, train=False)
             )
-
-            log = logger.log(results, 1)
-
+            toc = time.perf_counter()
+            log = logger.log(results, toc - tic)
             t.set_description(log)
 
         print(log)
-        torch.save(model.state_dict(), path)
+        torch.save(model.state_dict(), model_path)
         scheduler.step()
 
 
 def test(
         model,
-        path,
+        name,
         dataloader,
         loss_fn,
-        callbacks,
+        callback,
         device
 ):
 
     # Load Model from state_dict
-    model.load_state_dict(torch.load(path))
+    dir = os.path.join('saves', name)
+    if not os.path.exists(dir):
+        print(f'{name} does not exist')
+    model_path = os.path.join(dir, 'model')
+    model.load_state_dict(torch.load(model_path))
     model = model.to(device)
-    model.eval()
 
     batches = len(dataloader)
     print(batches)
 
-    logger = Logger(1, batches)
+    log_path = os.path.join(dir, 'log_test')
+    logger = Logger(1, batches, log_path)
 
     # Test Model on dataloader
     for j, data in enumerate(dataloader):
 
-        test_res = callbacks[0](model, data, loss_fn, train=False)
+        results = callback(model, data, None, loss_fn, train=False)
 
-        logger.log((0, 0), test_res, 0)
-        print(logger)
+        log = logger.log((0, 0, *results), 1)
+        print(log)
 
-    print(logger)
+    print(log)
 
 
-def omniglotCallBack(model, inputs, loss_fn, train=True):
+def omniglotCallBack(
+        model,
+        inputs,
+        optimizer,
+        loss_fn,
+        train=True
+):
 
     if train:
         model.train()
-        optim.zero_grad()
+        optimizer.zero_grad()
     else:
         model.eval()
 
@@ -177,7 +185,7 @@ def omniglotCallBack(model, inputs, loss_fn, train=True):
     (pred, lab) = model(s, q)
 
     # Compute Loss
-    loss_t = loss_fn(pred, lab)
+    loss_t = loss_fn(pred, lab.argmax(dim=1))
     loss = loss_t.item()
 
     # Compute Accuracy
@@ -187,7 +195,7 @@ def omniglotCallBack(model, inputs, loss_fn, train=True):
     if train:
         loss_t.backward()
         clip_grad_norm_(model.parameters(), 1)
-        optim.step()
+        optimizer.step()
 
     return loss, acc
 
@@ -202,20 +210,23 @@ if __name__ == '__main__':
     test_ds = data.OmniglotDataset(
         shots=1, background=False, device=device)
     ds = data.Siamese(train_ds, test_ds)
-    dl = DataLoader(ds, batch_size=20, shuffle=True, drop_last=True)
+    dataloader = DataLoader(ds, batch_size=20, shuffle=True, drop_last=True)
 
     model = arch.MatchingNets(device, 1, 64)
-    optim = optim.Adam(model.parameters(), lr=0.0005)
-    scheduler = torch.optim.lr_scheduler.MultiStepLR(optim, [250, 1000])
-    loss_fn = nn.CrossEntropyLoss()
+    model.__name__ = model.__name__ + input('Model Name:\n')
+    print(f'Training {model.__name__}')
+    optimizer = optim.Adam(model.parameters(), lr=0.0005)
+    scheduler = optim.lr_scheduler.MultiStepLR(optimizer, [40, 250, 1000])
+    # loss_fn = nn.CrossEntropyLoss()
+    loss_fn = nn.NLLLoss()
 
-    callbacks = [omniglotCallBack]
+    print('=' * 120)
 
     train(
         model,
-        dl,
-        callbacks,
-        optim,
+        dataloader,
+        omniglotCallBack,
+        optimizer,
         scheduler,
         loss_fn,
         2**13,
@@ -224,5 +235,5 @@ if __name__ == '__main__':
 
     # test_dl = DataLoader(test_ds, batch_size=20,
     #                      shuffle=True, drop_last=True)
-    # test(model, 'models/MatchingNets',
-    #      test_dl, loss_fn, [omniglotCallBack], device)
+    # test(model, model.__name__,
+    #      test_dl, loss_fn, omniglotCallBack, device)
