@@ -5,18 +5,20 @@ import matplotlib.pyplot as plt
 from torchvision.datasets import ImageNet, Omniglot
 from torchvision.transforms import ToTensor, Resize, Compose
 
-from torch.utils.data import Dataset, DataLoader
+from torch.utils.data import Dataset, DataLoader, ConcatDataset
 
 
-# transform data outside this class
 class OmniglotDataset(Dataset):
 
-    def __init__(self, background: bool, device):
-        '''
-        background: True = use background set, otherwise evaluation set
-        '''
+    def __init__(
+            self,
+            shots=1,
+            device='cpu',
+            background=True,
+    ):
+        super(OmniglotDataset).__init__()
         self.device = device
-        self.examples_per_char = 20
+        self.n = shots
         self.ds = Omniglot(
             'datasets/omniglot',
             background=background,
@@ -25,26 +27,81 @@ class OmniglotDataset(Dataset):
         )
 
     def __len__(self):
-        return int(len(self.ds) / self.examples_per_char)
+        return int(len(self.ds) / 20)
 
-    # each item is all images of a character (a class): there are 20 images per character and each image is (channel, height, width), so each item is (20, channel, height, width). Since all the images are the same character, the label is an integer, namely the index associated with this item.
+    # grabs shots number of images in one class for the support and query set. All images are from the same class per call to __getitem__
     def __getitem__(self, i):
-        a = i * self.examples_per_char
-        b = a + self.examples_per_char
-        index = torch.arange(a, b, 1).tolist()
-        x = torch.cat([self.ds[j][0].unsqueeze(0) for j in index])
-        return x.to(self.device), i
+        a = i * 20
+        b = a + 20
+        x = torch.cat([self.ds[j][0].unsqueeze(0) for j in range(a, b)])
+        x = x.to(self.device)
+        mask = torch.randperm(20).to(self.device)
+        return (x[mask[0:self.n]], x[mask[self.n:self.n * 2]]), i
+
+
+class Siamese(Dataset):
+
+    def __init__(
+            self,
+            *datasets,
+    ):
+        super(Siamese).__init__()
+        self.ds = [d for d in datasets]
+
+    def __len__(self):
+        return len(self.ds[0])
+
+    def __getitem__(self, i):
+        return [ds[i % len(ds)] for ds in self.ds]
 
 
 if __name__ == '__main__':
     device = "cuda" if torch.cuda.is_available() else "cpu"
-    train_data = OmniglotDataset(background=True, device=device)
-    train_dataloader = DataLoader(train_data, batch_size=64, shuffle=True)
-    # print(len(train_dataloader.ds), train_dataloader.ds.batch_size)
-    print(f'Batch Size: {train_dataloader.batch_size}')
-    print(
-        f'Dataloader Length = 964/{train_dataloader.batch_size}: {len(train_dataloader)}')
-    for X, y in train_dataloader:
-        print(f'Shape of X and dtype: {X.shape}, {X.dtype}')
-        print(f'Shape of y and dtype: {y.shape}, {y.dtype}')
-        break
+    # train_data = OmniglotDataset(background=True, device=device)
+    # train_dataloader = DataLoader(train_data, batch_size=64, shuffle=True)
+    # # print(len(train_dataloader.ds), train_dataloader.ds.batch_size)
+    # print(f'Batch Size: {train_dataloader.batch_size}')
+    # print(
+    #     f'Dataloader Length = 964/{train_dataloader.batch_size}: {len(train_dataloader)}')
+    # for X, y in train_dataloader:
+    #     print(f'Shape of X and dtype: {X.shape}, {X.dtype}')
+    #     print(f'Shape of y and dtype: {y.shape}, {y.dtype}')
+    #     break
+
+    train_ds = OmniglotDataset(shots=3, background=True, device=device)
+    test_ds = OmniglotDataset(shots=1, background=False, device=device)
+
+    ds = Siamese(train_ds, test_ds)
+
+    dl = DataLoader(ds, batch_size=20, shuffle=True, drop_last=True)
+
+    print("Train Dataset Length: ", len(train_ds))
+    print("Test Dataset Length: ", len(test_ds))
+    print("Dataloader Length: ", len(dl))
+
+    for i, a in enumerate(dl):
+        # a[0] is the training dataset with a length of 2
+        # a[0][0] is a list containing the support and query set of this batch, a[0][1] are the classes only in this batch
+        # a[1] is the testing dataset
+
+        if i == 0:
+            print(f'a[0][0]')
+            print(a[0][0]) # grabs a list of length 2 containing the support and query set
+            print()
+            print(f'a[0][0][0]') # grabs the support set
+            print(a[0][0][0])
+            # print(a[0][1]) # grabs the tensor array containing all classes only in this batch
+            # print(a[0][1][0]) # grabs first class of this batch
+            print()
+
+        print(
+            f'{i:<5}',
+            # (batch_size=num_classes, shots=num_examples_per_class, num_channels_per_image=1, 28, 28)
+            a[0][0][0].shape, # support set
+            a[0][0][1].shape, # query set
+            # support and query set have the same size, both have K classes w/ N examples per class
+            # a[0][1],
+            a[1][0][0].shape,
+            a[1][0][1].shape,
+            # a[1][1],
+        )
