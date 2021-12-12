@@ -1,5 +1,5 @@
 import torch
-
+import numpy as np
 import matplotlib.pyplot as plt
 
 from torchvision.datasets import ImageNet, Omniglot
@@ -10,15 +10,11 @@ from torch.utils.data import Dataset, DataLoader, ConcatDataset
 
 class OmniglotDataset(Dataset):
 
-    def __init__(
-            self,
-            shots=1,
-            device='cpu',
-            background=True,
-    ):
+    def __init__(self, support_num_exam_per_class=1, query_num_exam_per_class=1, device='cpu', background=True):
         super(OmniglotDataset).__init__()
         self.device = device
-        self.n = shots
+        self.support_num_exam_per_class = support_num_exam_per_class
+        self.query_num_exam_per_class = query_num_exam_per_class
         self.ds = Omniglot(
             'datasets/omniglot',
             background=background,
@@ -29,14 +25,15 @@ class OmniglotDataset(Dataset):
     def __len__(self):
         return int(len(self.ds) / 20)
 
-    # grabs shots number of images in one class for the support and query set. All images are from the same class per call to __getitem__
+    # grabs respective number of images in one class for the support and query set. All images are from the same class per call to __getitem__
     def __getitem__(self, i):
         a = i * 20
         b = a + 20
         x = torch.cat([self.ds[j][0].unsqueeze(0) for j in range(a, b)])
         x = x.to(self.device)
         mask = torch.randperm(20).to(self.device)
-        return (x[mask[0:self.n]], x[mask[self.n:self.n * 2]]), i
+        # returns: (support_set, query_set), target_label of images of this class
+        return (x[mask[0:self.support_num_exam_per_class]], x[mask[self.support_num_exam_per_class:self.support_num_exam_per_class + self.query_num_exam_per_class]]), i
 
 
 class Siamese(Dataset):
@@ -68,12 +65,12 @@ if __name__ == '__main__':
     #     print(f'Shape of y and dtype: {y.shape}, {y.dtype}')
     #     break
 
-    train_ds = OmniglotDataset(shots=3, background=True, device=device)
-    test_ds = OmniglotDataset(shots=1, background=False, device=device)
+    train_ds = OmniglotDataset(support_num_exam_per_class=3, query_num_exam_per_class=1, background=True, device=device)
+    test_ds = OmniglotDataset(support_num_exam_per_class=1, query_num_exam_per_class=3, background=False, device=device)
 
     ds = Siamese(train_ds, test_ds)
 
-    dl = DataLoader(ds, batch_size=20, shuffle=True, drop_last=True)
+    dl = DataLoader(ds, batch_size=5, shuffle=True, drop_last=True)
 
     print("Train Dataset Length: ", len(train_ds))
     print("Test Dataset Length: ", len(test_ds))
@@ -85,13 +82,22 @@ if __name__ == '__main__':
         # a[1] is the testing dataset
 
         if i == 0:
-            print(f'a[0][0]')
+            print(f'a[0][0] is a list containing the support and query set of this batch')
             print(a[0][0]) # grabs a list of length 2 containing the support and query set
             print()
-            print(f'a[0][0][0]') # grabs the support set
+            print(f'a[0][0][0] is the support set') # grabs the support set
             print(a[0][0][0])
-            # print(a[0][1]) # grabs the tensor array containing all classes only in this batch
+            print()
+            print(f'a[0][1] are the classes only in this batch')
+            print(a[0][1]) # grabs the tensor array containing all classes only in this batch
             # print(a[0][1][0]) # grabs first class of this batch
+            print()
+            classes = a[0][1].numpy()
+            target_indices = np.array(range(len(a[0][1])))
+            class_to_index = dict(zip(classes, target_indices))
+            print(class_to_index)
+            print(classes[1])
+            print(class_to_index.get(classes[1]))
             print()
 
         print(

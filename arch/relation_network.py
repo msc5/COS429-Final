@@ -42,6 +42,7 @@ class Embedding(nn.Module):
     def forward(self, x, is_sup_set: bool):
         num_classes, num_examples_per_class, chan, height, width = x.shape
         z = x.view(-1, chan, height, width)
+        # print(z.shape)
         x1 = self.conv1(z)
         x2 = self.conv2(x1)
         x3 = self.conv3(x2)
@@ -101,14 +102,15 @@ class Relation(nn.Module):
 
 class RelationNetwork(nn.Module):
 
-    def __init__(self, in_embed, out_embed, in_rel, out_rel, in_feat_rel, num_classes, num_examples_per_class):
+    def __init__(self, in_embed, out_embed, in_rel, out_rel, in_feat_rel, num_classes, support_num_examples_per_class, query_num_examples_per_class):
         """
         Relation Network
         Arguments:
         """
         super(RelationNetwork, self).__init__()
         self.num_classes = num_classes
-        self.num_examples_per_class = num_examples_per_class
+        self.support_num_examples_per_class = support_num_examples_per_class
+        self.query_num_examples_per_class = query_num_examples_per_class
         self.__name__ = 'RelationNetwork'
 
         self.embed = Embedding(in_embed, out_embed)
@@ -128,7 +130,7 @@ class RelationNetwork(nn.Module):
         # thus, in the support set, each class will only have one embedding (num_class * 1 for query set) whereas in the query set, each class will have query_num_examples_per_class embeddings (num_class * query_num_examples_per_class for supp set)
         query_embed = query_embed.repeat(self.num_classes * 1, 1, 1, 1, 1)
         query_embed = torch.permute(query_embed, (1, 0, 2, 3, 4))
-        support_embed = support_embed.repeat(self.num_classes * self.num_examples_per_class, 1, 1, 1, 1)
+        support_embed = support_embed.repeat(self.num_classes * self.query_num_examples_per_class, 1, 1, 1, 1)
         # print(f'query_embed shape: {query_embed.shape}')
         # print()
         # print(f'support_embed shape: {support_embed.shape}')
@@ -148,6 +150,11 @@ class RelationNetwork(nn.Module):
 
 if __name__ == '__main__':
     device = "cuda" if torch.cuda.is_available() else "cpu"
-    model = RelationNetwork(1, 64, 128, 64, 64, 5, 4).to(device)
+
+    num_classes = 5
+    support_num_examples_per_class = 1
+    query_num_examples_per_class = 4
+
+    model = RelationNetwork(1, 64, 128, 64, 64, num_classes=num_classes, support_num_examples_per_class=support_num_examples_per_class, query_num_examples_per_class=query_num_examples_per_class).to(device)
     data = np.random.rand(1, 28, 28)
-    summary(model, input_size=[(5, 4, 1, 28, 28), (5, 4, 1, 28, 28)])
+    summary(model, input_size=[(num_classes, support_num_examples_per_class, 1, 28, 28), (num_classes, query_num_examples_per_class, 1, 28, 28)])
