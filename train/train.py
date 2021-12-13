@@ -195,7 +195,7 @@ def test(
                 train=False
             )
             toc = time.perf_counter()
-            log = logger.log(results, toc - tic)
+            log = logger.log((0, 0, *results), toc - tic)
 
     print(log)
 
@@ -334,6 +334,12 @@ if __name__ == '__main__':
             shuffle=True,
             drop_last=True
         )
+        test_dataloader = DataLoader(
+            test_ds,
+            batch_size=k,
+            shuffle=True,
+            drop_last=True
+        )
         callback = omniglotCallBack
         filters_in = 1
         s = 28
@@ -354,12 +360,16 @@ if __name__ == '__main__':
         loss_fn = nn.CrossEntropy()
 
     model_name = config['name']
+    model_arch = config['arch']
     lr = config['learning_rate']
     schedule = config['schedule']
     epochs = config['epochs']
 
     optimizer = optim.Adam(model.parameters(), lr=lr)
     scheduler = optim.lr_scheduler.MultiStepLR(optimizer, schedule, gamma=0.5)
+
+    print(
+        f'Training {model_arch} {model_name} on {k}-way {n}-shot {m}-query-shot')
 
     if config['train']:
         train(
@@ -377,7 +387,7 @@ if __name__ == '__main__':
         test(
             model_name,
             model,
-            dataloader,
+            test_dataloader,
             callback,
             loss_fn,
             device,
