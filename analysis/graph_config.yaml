@@ -3,6 +3,6 @@ logdatas:
   - relnet20_20:
     label: "20 way, 5-shot"
     path: ./saves/RelationNetwork/20-way-5-shot/log
-  # - relnet20_1:
-  #   label: "20 way, 1-shot"
-  #   path: ./saves/RelationNetwork20way1shot
+  - relnet20_1:
+    label: "20 way, 1-shot"
+    path: ./saves/RelationNetwork/20-way-1-shot/log
