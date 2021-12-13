@@ -15,8 +15,8 @@ loss_fn: MSE
 # loss_fn: CrossEntropy
 
 k: 5 # Number of classes
-n: 5 # Number of examples per support class
-m: 15 # Number of examples per query class
+n: 1 # Number of examples per support class
+m: 19 # Number of examples per query class
 
 epochs: 250
 learning_rate: 0.001
