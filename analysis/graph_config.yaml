@@ -1,8 +1,8 @@
-graph_dir_path: graphs/relnet-20way
+graph_dir_path: ./analysis/graphs/relnet-20way
 logdatas:
-  - relnet20_1:
-    label: "20 way, 1-shot"
-    path: ../saves/RelationNetwork20way1shot
   - relnet20_20:
-    label: "20 way, 20-shot"
-    path: ../saves/RelationNetwork20way20shot
+    label: "20 way, 5-shot"
+    path: ./saves/RelationNetwork/20-way-5-shot/log
+  # - relnet20_1:
+  #   label: "20 way, 1-shot"
+  #   path: ./saves/RelationNetwork20way1shot
