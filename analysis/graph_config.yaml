@@ -1,11 +1,8 @@
-graph_dir_path: ./analysis/graphs/20way-1shot
+graph_dir_path: ./analysis/graphs/custom-5way
 logdatas:
-  - relnet:
-    label: "RelNet, 20 way, 1-shot"
-    path: ./saves/RelationNetwork/20-way-1-shot/log
-  - matchnet:
-    label: "MatchNet, 20 way, 1-shot"
-    path: ./saves/MatchingNetwork/20-way-1-shot/log
-  - customnet:
-    label: "CustomNet, 20 way, 1-shot"
-    path: ./saves/CustomNetwork/20-way-1-shot/log
+  - relnet5_5:
+    label: "CustomNet, 5 way, 5-shot"
+    path: ./saves/CustomNetwork/5-way-5-shot/log
+  - relnet5_1:
+    label: "CustomNet, 5 way, 1-shot"
+    path: ./saves/CustomNetwork/5-way-1-shot/log
