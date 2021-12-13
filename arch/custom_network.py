@@ -6,7 +6,7 @@ from torchinfo import summary
 
 class ConvBlock(nn.Module):
 
-    def __init__(self, fi, fo):
+    def __init__(self, fi, fo, res=True):
         """
         Convolutional Block
         Arguments:
@@ -14,6 +14,7 @@ class ConvBlock(nn.Module):
             fo: Number of filters in conv (64)
         """
         super(ConvBlock, self).__init__()
+        self.res = res
         self.seq = nn.Sequential(
             nn.Conv2d(fi, fo, 3, padding='same'),
             nn.BatchNorm2d(fo),
@@ -22,7 +23,9 @@ class ConvBlock(nn.Module):
 
     def forward(self, x):
         res = x
-        x = self.seq(x) + res
+        x = self.seq(x)
+        if self.res:
+            x = x + res
         return x
 
 
@@ -37,7 +40,7 @@ class PoolBlock(nn.Module):
         """
         super(PoolBlock, self).__init__()
         self.seq = nn.Sequential(
-            ConvBlock(fi, fo),
+            ConvBlock(fi, fo, res=False),
             nn.MaxPool2d(2),
             ConvBlock(fo, fo),
             nn.MaxPool2d(2)
@@ -116,7 +119,8 @@ class CustomNetwork(nn.Module):
         #     p.requires_grad = False
         # self.meta = Meta(fo * 2 * l, fo * 2 * l)
         self.meta = Meta(self.li, self.li)
-        self.dec = Decoder(self.li, 200, 1)
+        h2, w2 = int(84 / 2**4), int(84 / 2**4)
+        self.dec = Decoder(self.li * h2 * w2, 200, 1)
 
     def forward(self, s, t):
         k, n, c, h, w = s.shape
@@ -134,26 +138,19 @@ class CustomNetwork(nn.Module):
             ), dim=2)
             x.append(z)
         x = torch.cat(x, dim=2)
-        x = x.view(-1, self.li, int(h / 2 / 2), int(w / 2 / 2))
-        # print(x.max(), x.min())
+        h2, w2 = int(h / 2 / 2), int(w / 2 / 2)
+        x = x.view(-1, self.li, h2, w2)
         x = self.meta(x)
         # print(x.shape)
-        # print(x.max(), x.min())
         x = x.view(k * n * q * m, -1)
-        # print(x.max(), x.min())
+        # print(x.shape)
         x = self.dec(x)
-        # print(x.max(), x.min())
-        # x = x.view(q * m, k * n)
-        # print(x.max(), x.min())
-        # x = x.sum(dim=1)
-        # print(x.max(), x.min())
         x = x.view(q * m, k * n).softmax(dim=1)
-        # print(x.max(), x.min())
         return x
 
 
 if __name__ == '__main__':
     torch.cuda.empty_cache()
     device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
-    model = CustomNetwork(20, 1, 64, 3, device).to(device)
-    summary(model, input_size=[(20, 1, 1, 28, 28), (20, 1, 1, 28, 28)])
+    model = CustomNetwork(20, 3, 16, 3, device).to(device)
+    summary(model, input_size=[(20, 1, 3, 84, 84), (20, 1, 3, 84, 84)])
