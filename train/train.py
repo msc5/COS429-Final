@@ -220,9 +220,9 @@ def omniglotCallBack(
     return loss, acc
 
 
-def imgNetCallBack(
+def imagenetCallBack(
         model,
-        dataloader,
+        inputs,
         optimizer,
         loss_fn,
         train=True
@@ -234,7 +234,40 @@ def imgNetCallBack(
     else:
         model.eval()
 
-    ()
+    (ss, sl), (ts, tl) = inputs
+
+    ss = torch.tensor(ss)
+    sl = torch.tensor(sl)
+    ts = torch.tensor(ts)
+    tl = torch.tensor(tl)
+
+    k = sl.shape[1]
+    n = int(sl.shape[0] / k)
+    q = int(tl.shape[0] / n)
+
+    # lab = (
+    #     sl.argmax(dim=1).unsqueeze(0).expand(k * n, k)
+    #     tl.argmax(dim=1).unsqueeze(1).expand()
+    # ).int()
+    lab = tl
+
+    pred = model(ss, ts)
+
+    # Compute Loss
+    loss_t = loss_fn(pred, lab)
+    loss = loss_t.item()
+
+    # Compute Accuracy
+    correct = torch.sum(pred.argmax(dim=1) == lab.argmax(dim=1)).item()
+    acc = correct / pred.shape[0]
+
+    if train:
+        optimizer.zero_grad()
+        loss_t.backward()
+        clip_grad_norm_(model.parameters(), 1)
+        optimizer.step()
+
+    return loss, acc
 
 
 if __name__ == '__main__':
@@ -246,8 +279,14 @@ if __name__ == '__main__':
     query_num_examples_per_class = 4 # for training
     test_query_num_examples_per_class = 4 # for testing
 
+    # Omniglot
     train_ds = data.OmniglotDataset(support_num_exam_per_class=support_num_examples_per_class, query_num_exam_per_class=query_num_examples_per_class, device=device, background=True)
     test_ds = data.OmniglotDataset(support_num_exam_per_class=support_num_examples_per_class, query_num_exam_per_class=test_query_num_examples_per_class, background=False, device=device)
+
+    # Mini Image Net
+    # train_ds = data.ImageNetDataLoader(20, 1, 1, phase='train')
+    # test_ds = data.ImageNetDataLoader(20, 1, 1, phase='test')
+
     ds = data.Siamese(train_ds, test_ds)
 
     # batch size is the number of classes in the support set and query set (they both have same number of classes)

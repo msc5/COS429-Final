@@ -1,11 +1,9 @@
 import torch
 import numpy as np
-import matplotlib.pyplot as plt
-
-from torchvision.datasets import ImageNet, Omniglot
+from torchvision.datasets import Omniglot
 from torchvision.transforms import ToTensor, Resize, Compose
-
-from torch.utils.data import Dataset, DataLoader, ConcatDataset
+from torch.utils.data import Dataset, DataLoader
+from miniimagenettools.mini_imagenet_dataloader import MiniImageNetDataLoader
 
 
 class OmniglotDataset(Dataset):
@@ -33,6 +31,29 @@ class OmniglotDataset(Dataset):
         mask = torch.randperm(20).to(self.device)
         # returns: (support_set, query_set), target_label of images of this class
         return (x[mask[0:self.support_num_exam_per_class]], x[mask[self.support_num_exam_per_class:self.support_num_exam_per_class + self.query_num_exam_per_class]]), i
+
+
+class ImageNetDataLoader:
+
+    def __init__(
+        self,
+        k=20,
+        n=1,
+        m=1,
+        phase='train'
+    ):
+        self.phase = phase
+        self.dl = MiniImageNetDataLoader(
+            shot_num=n,
+            way_num=k,
+            episode_test_sample_num=m
+        )
+        self.dl.generate_data_list(phase=phase)
+        self.dl.load_list(phase=phase)
+
+    def __getitem__(self, i):
+        s, q = self.dl.get_batch(phase=self.phase, idx=i)
+        return s, q
 
 
 class Siamese(Dataset):
