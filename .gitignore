@@ -3,7 +3,6 @@
 datasets/
 models/
 logs/
-saves/
 analysis/graphs/
 data/processed_images/*
 **/processed_images/*
