@@ -273,6 +273,7 @@ def imagenetCallBack(
 if __name__ == '__main__':
     device = "cuda" if torch.cuda.is_available() else "cpu"
 
+    ### TASK SETUP ###
     # 5 classes w/ 1 example per class (5-way 1-shot)
     num_classes = 5
     support_num_examples_per_class = 1
