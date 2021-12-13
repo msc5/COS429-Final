@@ -35,7 +35,7 @@ class Logger:
     ):
         data = torch.tensor((*results, elapsed_time))
         self.data[self.e, self.b, :] = data
-        means = self.data[self.e, 0:self.b + 1, 0:4].mean(dim=0)
+        means = self.data[self.e, 0:self.b + 1, :].mean(dim=0)
         msg = self.msg(means)
         self.b += 1
         if self.b == self.batches:
