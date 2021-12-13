@@ -180,6 +180,7 @@ def omniglotCallBack(
         inputs,
         optimizer,
         loss_fn,
+        device,
         train=True
 ):
 
@@ -189,8 +190,8 @@ def omniglotCallBack(
     else:
         model.eval()
 
-    (s, q), _ = inputs
-    pred = model(s, q)
+    (s, t), _ = inputs
+    pred = model(s, t)
 
     k = int(pred.shape[1])
     n = int(pred.shape[0] / k)
@@ -213,9 +214,9 @@ def omniglotCallBack(
     return loss, acc
 
 
-def imgNetCallBack(
+def imagenetCallBack(
         model,
-        dataloader,
+        inputs,
         optimizer,
         loss_fn,
         train=True
@@ -227,7 +228,39 @@ def imgNetCallBack(
     else:
         model.eval()
 
-    ()
+    (ss, sl), (ts, tl) = inputs
+
+    ss = torch.tensor(ss)
+    sl = torch.tensor(sl)
+    ts = torch.tensor(ts)
+    tl = torch.tensor(tl)
+
+    k = sl.shape[1]
+    n = int(sl.shape[0] / k)
+    q = int(tl.shape[0] / n)
+
+    # lab = (
+    #     sl.argmax(dim=1).unsqueeze(0).expand(k * n, k)
+    #     tl.argmax(dim=1).unsqueeze(1).expand()
+    # ).int()
+    lab = tl
+
+    pred = model(ss, ts)
+
+    # Compute Loss
+    loss_t = loss_fn(pred, lab)
+    loss = loss_t.item()
+
+    # Compute Accuracy
+    correct = torch.sum(pred.argmax(dim=1) == lab.argmax(dim=1)).item()
+    acc = correct / pred.shape[0]
+
+    if train:
+        loss_t.backward()
+        clip_grad_norm_(model.parameters(), 1)
+        optimizer.step()
+
+    return loss, acc
 
 
 if __name__ == '__main__':
@@ -238,10 +271,13 @@ if __name__ == '__main__':
     # train_dataset = data.OmniglotDataset(background=True, device=device)
     # train_dataloader = DataLoader(train_dataset, batch_size=64, shuffle=True)
 
-    train_ds = data.OmniglotDataset(
-        shots=num_examples_per_class, background=True, device=device)
-    test_ds = data.OmniglotDataset(
-        shots=num_examples_per_class, background=False, device=device)
+    # train_ds = data.OmniglotDataset(
+    #     shots=num_examples_per_class, background=True, device=device)
+    # test_ds = data.OmniglotDataset(
+    #     shots=num_examples_per_class, background=False, device=device)
+
+    train_ds = data.ImageNetDataLoader(20, 1, 1, phase='train')
+    test_ds = data.ImageNetDataLoader(20, 1, 1, phase='test')
     ds = data.Siamese(train_ds, test_ds)
     dataloader = DataLoader(ds, batch_size=20, shuffle=True, drop_last=True)
 

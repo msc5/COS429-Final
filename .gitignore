@@ -5,3 +5,4 @@ models/
 logs/
 saves/
 analysis/graphs/
+data/processed_images/*
