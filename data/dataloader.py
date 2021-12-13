@@ -75,10 +75,12 @@ class ImageNetDataLoader:
 
     def __getitem__(self, i):
         ss, sl, ts, tl = self.dl.get_batch(phase=self.phase, idx=i)
-        # print(ss.shape)
-        ss = torch.tensor(ss).view(-1, 3, 84, 84).float().to(self.device)
+
+        ss = torch.tensor(ss).view(self.k, self.n, 3,
+                                   84, 84).float().to(self.device)
         sl = torch.tensor(sl).float().to(self.device)
-        ts = torch.tensor(ts).view(-1, 3, 84, 84).float().to(self.device)
+        ts = torch.tensor(ts).view(self.k, self.m, 3,
+                                   84, 84).float().to(self.device)
         tl = torch.tensor(tl).float().to(self.device)
         return (ss, sl), (ts, tl)
 
@@ -112,14 +114,21 @@ if __name__ == '__main__':
     #     print(f'Shape of y and dtype: {y.shape}, {y.dtype}')
     #     break
 
-    train_ds = OmniglotDataset(support_num_exam_per_class=3,
-                               query_num_exam_per_class=1, background=True, device=device)
-    test_ds = OmniglotDataset(support_num_exam_per_class=1,
-                              query_num_exam_per_class=3, background=False, device=device)
+    # train_ds = OmniglotDataset(support_num_exam_per_class=3,
+    #                            query_num_exam_per_class=1, background=True, device=device)
+    # test_ds = OmniglotDataset(support_num_exam_per_class=1,
+    #                           query_num_exam_per_class=3, background=False, device=device)
+
+    k = 3
+    n = 2
+    m = 4
+
+    train_ds = ImageNetDataLoader(k=k, n=n, m=m, phase='train', device=device)
+    test_ds = ImageNetDataLoader(k=k, n=n, m=m, phase='test', device=device)
 
     ds = Siamese(train_ds, test_ds)
 
-    dl = DataLoader(ds, batch_size=5, shuffle=True, drop_last=True)
+    dl = DataLoader(ds, batch_size=1, shuffle=True, drop_last=True)
 
     print("Train Dataset Length: ", len(train_ds))
     print("Test Dataset Length: ", len(test_ds))
@@ -130,36 +139,40 @@ if __name__ == '__main__':
         # a[0][0] is a list containing the support and query set of this batch, a[0][1] are the classes only in this batch
         # a[1] is the testing dataset
 
-        if i == 0:
-            print(
-                f'a[0][0] is a list containing the support and query set of this batch')
-            # grabs a list of length 2 containing the support and query set
-            print(a[0][0])
-            print()
-            print(f'a[0][0][0] is the support set')  # grabs the support set
-            print(a[0][0][0])
-            print()
-            print(f'a[0][1] are the classes only in this batch')
-            # grabs the tensor array containing all classes only in this batch
-            print(a[0][1])
-            # print(a[0][1][0]) # grabs first class of this batch
-            print()
-            classes = a[0][1].numpy()
-            target_indices = np.array(range(len(a[0][1])))
-            class_to_index = dict(zip(classes, target_indices))
-            print(class_to_index)
-            print(classes[1])
-            print(class_to_index.get(classes[1]))
-            print()
+        # if i == 0:
+        #     print(
+        #         f'a[0][0] is a list containing the support and query set of this batch')
+        #     # grabs a list of length 2 containing the support and query set
+        #     print(a[0][0])
+        #     print()
+        #     print(f'a[0][0][0] is the support set')  # grabs the support set
+        #     print(a[0][0][0])
+        #     print()
+        #     print(f'a[0][1] are the classes only in this batch')
+        #     # grabs the tensor array containing all classes only in this batch
+        #     print(a[0][1])
+        #     # print(a[0][1][0]) # grabs first class of this batch
+        #     print()
+        #     classes = a[0][1].numpy()
+        #     target_indices = np.array(range(len(a[0][1])))
+        #     class_to_index = dict(zip(classes, target_indices))
+        #     print(class_to_index)
+        #     print(classes[1])
+        #     print(class_to_index.get(classes[1]))
+        #     print()
 
         print(
             f'{i:<5}',
             # (batch_size=num_classes, shots=num_examples_per_class, num_channels_per_image=1, 28, 28)
-            a[0][0][0].shape,  # support set
-            a[0][0][1].shape,  # query set
-            # support and query set have the same size, both have K classes w/ N examples per class
-            # a[0][1],
-            a[1][0][0].shape,
-            a[1][0][1].shape,
+            # a[0][0][0].shape,  # support set
+            # a[0][0][1].shape,  # query set
+            # # support and query set have the same size, both have K classes w/ N examples per class
+            # # a[0][1],
+            # a[1][0][0].shape,
+            # a[1][0][1].shape,
             # a[1][1],
+            a[0][0][0].shape,   # Train Support Set
+            a[0][1][0].shape,   # Train Query Set
+            a[1][0][0].shape,   # Test Support Set
+            a[1][1][0].shape,   # Test Query Set
         )

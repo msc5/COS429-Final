@@ -97,10 +97,13 @@ class Decoder(nn.Module):
 
 class CustomNetwork(nn.Module):
 
-    def __init__(self,  k, fi, fo, l, device='cpu'):
+    def __init__(self, l, s, fi, fo, k, n, m, device='cpu'):
         super(CustomNetwork, self).__init__()
         self.device = device
         self.__name__ = 'CustomNetwork'
+        self.k = k
+        self.n = n
+        self.m = m
         self.fo = fo
         self.li = fo * 2 * l
         self.pool = MultiBlock(
@@ -117,10 +120,8 @@ class CustomNetwork(nn.Module):
         #     p.requires_grad = False
         # for p in self.list.parameters():
         #     p.requires_grad = False
-        # self.meta = Meta(fo * 2 * l, fo * 2 * l)
         self.meta = Meta(self.li, self.li)
-        h2, w2 = int(84 / 2**4), int(84 / 2**4)
-        self.dec = Decoder(self.li * h2 * w2, 200, 1)
+        self.dec = Decoder(self.li * int(s / 2**4)**2 * self.n, 200, 1)
 
     def forward(self, s, t):
         k, n, c, h, w = s.shape
@@ -129,28 +130,36 @@ class CustomNetwork(nn.Module):
         t = t.view(-1, c, h, w)
         s, t = self.pool(s, t)
         x = []
-        # print(s.shape, t.shape)
         for i, layer in enumerate(self.list):
             s, t = layer(s, t)
             z = torch.cat((
-                t.unsqueeze(1).expand((k * n, q * m, -1, -1, -1)),
-                s.unsqueeze(0).expand((k * n, q * m, -1, -1, -1))
+                t.unsqueeze(1).expand(q * m, k * n, -1, -1, -1),
+                s.unsqueeze(0).expand(q * m, k * n, -1, -1, -1)
             ), dim=2)
             x.append(z)
         x = torch.cat(x, dim=2)
-        h2, w2 = int(h / 2 / 2), int(w / 2 / 2)
-        x = x.view(-1, self.li, h2, w2)
+        # print(x.shape)
+        # h2, w2 = int(h / 2 / 2), int(w / 2 / 2)
+        # x = x.view(-1, self.li, h2, w2)
+        x = x.flatten(start_dim=0, end_dim=1)
         x = self.meta(x)
         # print(x.shape)
-        x = x.view(k * n * q * m, -1)
+        x = x.view(q * m, k * n, -1)
+        x = x.view(q * m * k, self.li * n)
         # print(x.shape)
         x = self.dec(x)
-        x = x.view(q * m, k * n).softmax(dim=1)
+        x = x.view(q * m, k).softmax(dim=1)
+        # print(x.shape)
         return x
 
 
 if __name__ == '__main__':
-    torch.cuda.empty_cache()
+    k = 3
+    n = 4
+    m = 5
+    s = 28
+    c = 1
+    l = 3
     device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
-    model = CustomNetwork(20, 3, 16, 3, device).to(device)
-    summary(model, input_size=[(20, 1, 3, 84, 84), (20, 1, 3, 84, 84)])
+    model = CustomNetwork(l, s, c, 64, k, n, m, device).to(device)
+    summary(model, input_size=[(k, n, c, s, s), (k, m, c, s, s)])

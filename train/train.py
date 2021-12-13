@@ -9,11 +9,17 @@ from torch.nn.utils import clip_grad_norm_
 
 from torchvision import transforms
 
+import matplotlib.pyplot as plt
+
+import numpy as np
+
 from tqdm import tqdm
+
 
 import os
 import io
 import time
+import yaml
 
 # Our modules
 import arch
@@ -69,6 +75,7 @@ class Logger:
 
 
 def train(
+        name,
         model,
         dataloader,
         callback,
@@ -86,22 +93,25 @@ def train(
     print(epochs, num_batches, batch_size)
 
     # Setup files
-    name = model.__name__
-    dir = os.path.join('saves', name)
-    model_path = os.path.join(dir, 'model')
-    log_path = os.path.join(dir, 'log')
+    model_type = model.__name__
+    type_dir = os.path.join('saves', model_type)
+    model_dir = os.path.join(type_dir, name)
+    model_path = os.path.join(model_dir, 'model')
+    log_path = os.path.join(model_dir, 'log')
     if not os.path.exists('saves'):
         os.makedirs('saves')
-    if os.path.exists(dir):
+    if not os.path.exists(type_dir):
+        os.makedirs(type_dir)
+    if os.path.exists(model_dir):
         ans = input(
-            f'{name} has already been trained. Overwrite save files? (y/n)\n',
+            f'{model_type + ": " + name} has already been trained. Overwrite save files? (y/n)\n',
         )
         if ans == 'y' or ans == 'Y':
             pass
         else:
             return
     else:
-        os.makedirs(dir)
+        os.makedirs(model_dir)
 
     # Initialize Logger
     logger = Logger(epochs, num_batches, log_path)
@@ -122,11 +132,11 @@ def train(
             bar_format='{desc}|{bar:20}| {rate_fmt}',
             leave=False,
         )
-        for j, (train, test) in enumerate(t):
+        for j, (train_ds, test_ds) in enumerate(t):
             results = (
-                *callback(model, train, optimizer,
+                *callback(model, train_ds, optimizer,
                           loss_fn, device, train=True),
-                *callback(model, test, None, loss_fn, device, train=False)
+                *callback(model, test_ds, None, loss_fn, device, train=False)
             )
             toc = time.perf_counter()
             log = logger.log(results, toc - tic)
@@ -136,44 +146,45 @@ def train(
         torch.save(model.state_dict(), model_path)
         scheduler.step()
 
-# def test(
-#         model,
-#         name,
-#         dataloader,
-#         loss_fn,
-#         callback,
-#         device
-# ):
 
-#     # Load Model from state_dict
-#     dir = os.path.join('saves', name)
-#     if not os.path.exists(dir):
-#         print(f'{name} does not exist')
-#     model_path = os.path.join(dir, 'model')
-#     model.load_state_dict(torch.load(model_path))
-#     model = model.to(device)
+def test(
+        name,
+        model,
+        dataloader,
+        callback,
+        loss_fn,
+        device,
+):
 
-#     batches = len(dataloader)
-#     print(batches)
+    # Load Model from state_dict
+    dir = os.path.join('saves', model.__name__, name)
+    if not os.path.exists(dir):
+        print(f'{name} does not exist')
+    model_path = os.path.join(dir, 'model')
+    log_path = os.path.join(dir, 'log_test')
+    model.load_state_dict(torch.load(model_path))
+    model = model.to(device)
 
-#     log_path = os.path.join(dir, 'log_test')
-#     logger = Logger(1, batches, log_path)
+    batches = len(dataloader)
+    print(batches)
 
-#             # Compute predictions
-#             if name == "RelationNetwork":
-#                 pred = model(sup_set, query_set)
-#                 target_labels = torch.eye(num_classes).repeat_interleave(query_num_examples_per_class, dim=0).to(device)
-#             elif name == "MatchingNets":
-#                 outputs = model(sup_set, query_set)
-#                 pred = outputs[1]
-#                 target_labels = outputs[0]
+    # Initialize Logger
+    logger = Logger(1, batches, log_path)
 
-#         results = callback(model, data, None, loss_fn, train=False)
+    # Use GPU or CPU to train model
+    model = model.to(device)
+    model.zero_grad()
 
-#         log = logger.log((0, 0, *results), 1)
-#         print(log)
+    # Print header
+    print(logger.header())
+    tic = time.perf_counter()
 
-#     print(log)
+    for j, test_ds in enumerate(dataloader):
+        results = callback(model, test_ds, None, loss_fn, device, train=False)
+        toc = time.perf_counter()
+        log = logger.log(results, toc - tic)
+
+    print(log)
 
 
 def omniglotCallBack(
@@ -230,6 +241,7 @@ def imagenetCallBack(
         inputs,
         optimizer,
         loss_fn,
+        device,
         train=True
 ):
 
@@ -241,67 +253,32 @@ def imagenetCallBack(
 
     (ss, sl), (ts, tl) = inputs
 
-    ss = torch.tensor(ss)
-    sl = torch.tensor(sl)
-    ts = torch.tensor(ts)
-    tl = torch.tensor(tl)
-
-    k = sl.shape[1]
-    n = int(sl.shape[0] / k)
-    q = int(tl.shape[0] / n)
-
-    # lab = (
-    #     sl.argmax(dim=1).unsqueeze(0).expand(k * n, k)
-    #     tl.argmax(dim=1).unsqueeze(1).expand()
-    # ).int()
-    lab = tl
-
-    pred = model(ss, ts)
-
-    # Compute Loss
-    loss_t = loss_fn(pred, lab)
-    loss = loss_t.item()
-
-    # Compute Accuracy
-    correct = torch.sum(pred.argmax(dim=1) == lab.argmax(dim=1)).item()
-    acc = correct / pred.shape[0]
-
-    if train:
-        optimizer.zero_grad()
-        loss_t.backward()
-        clip_grad_norm_(model.parameters(), 1)
-        optimizer.step()
-
-    return loss, acc
-
-
-def imagenetCallBack(
-        model,
-        inputs,
-        optimizer,
-        loss_fn,
-        train=True
-):
-
-    if train:
-        model.train()
-        optimizer.zero_grad()
-    else:
-        model.eval()
-
-    (ss, sl), (ts, tl) = inputs
-
-    ss = torch.permute(ss, (1, 0, 2, 3, 4))
-    ts = torch.permute(ts, (1, 0, 2, 3, 4))
+    ss = ss.squeeze(0)
     sl = sl.squeeze(0)
+    ts = ts.squeeze(0)
     tl = tl.squeeze(0)
+
+    # print(ss.shape, sl.shape, ts.shape, tl.shape)
     k = sl.shape[1]
     n = int(sl.shape[0] / k)
     m = int(tl.shape[0] / k)
 
+    # fig, ax = plt.subplots(2, max(k * n, k * m))
+    # for i in range(k):
+    #     for j in range(n):
+    #         ax[0, i + j].imshow(ss[i, j].view(84, 84, 3).cpu().numpy())
+    #         ax[0, i + j].set_title(sl.argmax(dim=1)[i].item())
+    # for i in range(k):
+    #     for j in range(m):
+    #         ax[1, i + j].imshow(ts[i, j].view(84, 84, 3).cpu().numpy())
+    #         ax[1, i + j].set_title(tl.argmax(dim=1)[i].item())
+    # plt.show()
+
     # print(ss.shape, ts.shape)
     pred = model(ss, ts)
     lab = tl
+
+    # print(tl, pred)
 
     # Compute Loss
     loss_t = loss_fn(pred, lab)
@@ -320,90 +297,78 @@ def imagenetCallBack(
 
 
 if __name__ == '__main__':
+
+    config_file = open("config.yaml", "r")
+    try:
+        config = yaml.safe_load(config_file)
+    except yaml.YAMLError as exc:
+        print(exc)
+
     device = "cuda" if torch.cuda.is_available() else "cpu"
-    # device = 'cpu'
 
-    ### TASK SETUP ###
-    # 5 classes w/ 1 example per class (5-way 1-shot)
-    num_classes = 5
-    support_num_examples_per_class = 1
-    query_num_examples_per_class = 4  # for training
-    test_query_num_examples_per_class = 4  # for testing
+    # Training or Testing
+    mode = config['mode']
 
-    # Omniglot
-    train_ds = data.OmniglotDataset(support_num_exam_per_class=support_num_examples_per_class,
-                                    query_num_exam_per_class=query_num_examples_per_class, device=device, background=True)
-    test_ds = data.OmniglotDataset(support_num_exam_per_class=support_num_examples_per_class,
-                                   query_num_exam_per_class=test_query_num_examples_per_class, background=False, device=device)
+    # Task Setup
+    k = config['k']           # Number of classes
+    n = config['n']           # Number of examples per support class
+    m = config['m']           # Number of examples per query class
 
-    # Mini Image Net
-    # train_ds = data.ImageNetDataLoader(20, 1, 1, phase='train')
-    # test_ds = data.ImageNetDataLoader(20, 1, 1, phase='test')
+    if config['dataset'] == 'Omniglot':
+        train_ds = data.OmniglotDataset(n, m, device, True)
+        test_ds = data.OmniglotDataset(n, m, device, False)
+        siamese = data.Siamese(train_ds, test_ds)
+        dataloader = DataLoader(
+            siamese,
+            batch_size=k,
+            shuffle=True,
+            drop_last=True
+        )
+        callback = omniglotCallBack
+        filters_in = 1
+        s = 28
 
-    ds = data.Siamese(train_ds, test_ds)
+    if config['arch'] == 'RelationNetwork':
+        in_feat_rel = 64 if config['dataset'] == 'Omniglot' else 576
+        model = arch.RelationNetwork(filters_in, 64, in_feat_rel, k, n, m)
+    elif config['arch'] == 'MatchingNetwork':
+        model = arch.MatchingNets(device, filters_in, 64)
+    elif config['arch'] == 'CustomNetwork':
+        model = arch.CustomNetwork(3, s, filters_in, 64, k, n, m, device)
 
-    # batch size is the number of classes in the support set and query set (they both have same number of classes)
-    train_dataloader = DataLoader(
-        ds, batch_size=num_classes, shuffle=True, drop_last=True)
-    num_episodes_per_epoch = len(train_dataloader)
-    episode_factor = 4  # change depending on task
-
-    # test_dataloader = DataLoader(test_ds, batch_size=num_classes, shuffle=False, drop_last=True)
-
-    # model = arch.MatchingNets(device, 1, 64).to(device)
-    model = arch.RelationNetwork(1, 64, 128, 64, 64, num_classes=num_classes,
-                                 support_num_examples_per_class=support_num_examples_per_class, query_num_examples_per_class=query_num_examples_per_class)
-    # model = arch.CustomNetwork(20, 1, 64, 3, device).to(device)
-
-    # if want to load model and train/inference with an existing pre-trained model
-    # PATH = os.path.join('models', model.__name__)
-    # model.load_state_dict(torch.load(PATH))
-    print()
-    print()
-    print(f"Model Name Attribute: {model.__name__}")
-    print()
-    print()
-
-    if model.__name__ == "RelationNetwork":
-        # change this back to lr=10e-3
-        optimizer = optim.Adam(model.parameters(), lr=5e-3)
-        scheduler = optim.lr_scheduler.MultiStepLR(optimizer, [100000/(episode_factor * num_episodes_per_epoch), 200000/(
-            episode_factor * num_episodes_per_epoch), 300000/(episode_factor * num_episodes_per_epoch), 400000/(episode_factor * num_episodes_per_epoch)], gamma=0.5)
+    if config['loss_fn'] == 'MSE':
         loss_fn = nn.MSELoss()
-    elif model.__name__ == "MatchingNets":
-        # was lr=0.0005
-        optimizer = optim.Adam(model.parameters(), lr=0.001)
-        scheduler = optim.lr_scheduler.MultiStepLR(
-            optimizer, [100, 200, 300, 400], gamma=0.5)
-        loss_fn = nn.CrossEntropyLoss()
-    elif model.__name__ == "CustomNetwork":
-        optimizer = optim.Adam(model.parameters(), lr=0.001)
-        scheduler = optim.lr_scheduler.MultiStepLR(
-            optimizer, [40, 250, 1000], gamma=0.5)
-        # loss_fn = nn.CrossEntropyLoss()
-        # loss_fn = nn.NLLLoss()
-        loss_fn = nn.MSELoss()
+    elif config['loss_fn'] == 'NLL':
+        loss_fn = nn.NLLLoss()
+    elif config['loss_fn'] == 'CrossEntropy':
+        loss_fn = nn.CrossEntropy()
 
-    model.__name__ = model.__name__ + input('Model Name:\n')
-    print()
-    print()
-    print(f'Training {model.__name__}')
-    print('=' * 120)
+    model_name = config['name']
+    lr = config['learning_rate']
+    schedule = config['schedule']
+    epochs = config['epochs']
 
-    train(
-        model,
-        train_dataloader,
-        omniglotCallBack,
-        optimizer,
-        scheduler,
-        loss_fn,
-        2**13,
-        device
-    )
+    optimizer = optim.Adam(model.parameters(), lr=lr)
+    scheduler = optim.lr_scheduler.MultiStepLR(optimizer, schedule, gamma=0.5)
 
-    print()
-    print("Done!")
-
-    # test_dl = DataLoader(test_ds, batch_size=20, shuffle=True, drop_last=True)
-    # test(test_dataloader, model, loss_fn, query_num_examples_per_class, num_classes) - my version
-    # test(model, model.__name__, test_dl, loss_fn, omniglotCallBack, device)
+    if config['mode'] == 'train':
+        train(
+            model_name,
+            model,
+            dataloader,
+            callback,
+            optimizer,
+            scheduler,
+            loss_fn,
+            epochs,
+            device
+        )
+    if config['mode'] == 'test':
+        test(
+            model_name,
+            model,
+            dataloader,
+            callback,
+            loss_fn,
+            device,
+        )

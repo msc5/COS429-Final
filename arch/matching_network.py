@@ -79,7 +79,7 @@ class MatchingNets(nn.Module):
         self.g = Embed(fi, fo)
         self.distance = Distance()
         self.classify = Classifier(self.device)
-        self.__name__ = 'MatchingNets'
+        self.__name__ = 'MatchingNetwork'
 
     def forward(self, s, t):
         k, n, _, _, _ = s.shape
