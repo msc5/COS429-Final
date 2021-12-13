@@ -1,0 +1,26 @@
+train: True
+test: True
+
+# arch: CustomNetwork
+arch: RelationNetwork
+# arch: MatchingNetwork
+
+name: 5-way-5-shot
+
+dataset: Omniglot
+# dataset: miniImageNet
+
+loss_fn: MSE
+# loss_fn: NLL
+# loss_fn: CrossEntropy
+
+k: 5 # Number of classes
+n: 5 # Number of examples per support class
+m: 15 # Number of examples per query class
+
+epochs: 250
+learning_rate: 10e-3
+schedule:
+  - 40
+  - 250
+  - 1000
