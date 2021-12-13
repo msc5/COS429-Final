@@ -1,7 +1,8 @@
 import torch
 import torch.nn as nn
 
-from torchsummary import summary
+from torchinfo import summary
+
 
 class Conv(nn.Module):
 
@@ -12,15 +13,16 @@ class Conv(nn.Module):
         if stride is not None:
             conv = nn.Conv2d(fi, fo, fs, stride=stride, padding=padding)
         self.stack = nn.Sequential(
-                conv,
-                nn.BatchNorm2d(fo),
-                nn.ReLU()
-                )
-        
+            conv,
+            nn.BatchNorm2d(fo),
+            nn.ReLU()
+        )
+
     def forward(self, x):
         res = x
         x = self.stack(x)
-        if not self.skip: x = x + res
+        if not self.skip:
+            x = x + res
         return x
 
 
@@ -86,7 +88,7 @@ if __name__ == '__main__':
     wi = 105
     device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
     model = ResNet(3, hi, wi, 1000).to(device)
-    actual = torch.hub.load('pytorch/vision:v0.10.0', 'resnet34', pretrained=True).to(device)
+    actual = torch.hub.load('pytorch/vision:v0.10.0',
+                            'resnet34', pretrained=True).to(device)
     summary(model, input_size=(3, hi, wi))
     summary(actual, input_size=(3, hi, wi))
-

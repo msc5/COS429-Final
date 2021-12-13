@@ -1,93 +1,133 @@
 import torch
-
-import matplotlib.pyplot as plt
-
-from torchvision.datasets import ImageNet, Omniglot
-from torchvision.transforms import ToTensor, Resize
-
+import numpy as np
+from torchvision.datasets import Omniglot
+from torchvision.transforms import ToTensor, Resize, Compose
 from torch.utils.data import Dataset, DataLoader
-
-
-def omniglot_DataLoader():
-    dataset = Omniglot(
-        'datasets/omniglot',
-        True,
-        download=True,
-        transform=ToTensor(),
-    )
-    dataloader = torch.utils.data.DataLoader(
-        dataset,
-        batch_size=128,
-        shuffle=True,
-        num_workers=4,
-    )
-    return dataset, dataloader
+# from miniimagenettools.mini_imagenet_dataloader import MiniImageNetDataLoader
 
 
 class OmniglotDataset(Dataset):
 
-    def __init__(self, device):
+    def __init__(self, support_num_exam_per_class=1, query_num_exam_per_class=1, device='cpu', background=True):
+        super(OmniglotDataset).__init__()
         self.device = device
-        self.batch_size = 20
+        self.support_num_exam_per_class = support_num_exam_per_class
+        self.query_num_exam_per_class = query_num_exam_per_class
         self.ds = Omniglot(
             'datasets/omniglot',
-            True,
+            background=background,
             download=True,
-            transform=self.transform
+            transform=Compose([Resize(28), ToTensor()])
         )
 
-    def transform(self, x):
-        x = ToTensor()(x)
-        x = Resize(28)(x)
-        return x
+    def __len__(self):
+        return int(len(self.ds) / 20)
+
+    # grabs respective number of images in one class for the support and query set. All images are from the same class per call to __getitem__
+    def __getitem__(self, i):
+        a = i * 20
+        b = a + 20
+        x = torch.cat([self.ds[j][0].unsqueeze(0) for j in range(a, b)]).to(self.device)
+        mask = torch.randperm(20).to(self.device)
+        # returns: (support_set, query_set), target_label of images of this class
+        return (x[mask[0:self.support_num_exam_per_class]], x[mask[self.support_num_exam_per_class:self.support_num_exam_per_class + self.query_num_exam_per_class]]), i
+
+
+# class ImageNetDataLoader:
+
+#     def __init__(
+#         self,
+#         k=20,
+#         n=1,
+#         m=1,
+#         phase='train'
+#     ):
+#         self.phase = phase
+#         self.dl = MiniImageNetDataLoader(
+#             shot_num=n,
+#             way_num=k,
+#             episode_test_sample_num=m
+#         )
+#         self.dl.generate_data_list(phase=phase)
+#         self.dl.load_list(phase=phase)
+
+#     def __getitem__(self, i):
+#         s, q = self.dl.get_batch(phase=self.phase, idx=i)
+#         return s, q
+
+
+class Siamese(Dataset):
+
+    def __init__(
+            self,
+            *datasets,
+    ):
+        super(Siamese).__init__()
+        self.ds = [d for d in datasets]
 
     def __len__(self):
-        return int(len(self.ds) / self.batch_size)
+        return len(self.ds[0])
 
     def __getitem__(self, i):
-        a = i * self.batch_size
-        b = a + self.batch_size
-        index = torch.arange(a, b, 1).tolist()
-        x = torch.cat([self.ds[j][0].unsqueeze(0) for j in index])
-        return x.to(self.device), i
-
-
-class OmniglotDataLoader(DataLoader):
-
-    def __init__(self, device, batch_size=1):
-        self.device = device
-        self.ds = OmniglotDataset(self.device)
-        self.batch_size = batch_size
-        self.i = 0
-
-    def __len__(self):
-        rem = 0 if len(self.ds) % self.batch_size == 0 else 1
-        return int(len(self.ds) / self.batch_size) + rem
-
-    def __getitem__(self, i):
-        a = i * self.batch_size
-        b = a + self.batch_size
-        index = torch.arange(a, b if b < len(self.ds) else len(self.ds), 1)
-        x = torch.cat([self.ds[j][0].unsqueeze(0) for j in index.tolist()])
-        y = torch.tensor([self.ds[j][1] for j in index.tolist()]).unsqueeze(1)
-        return x.to(self.device), y.to(self.device)
-
-    def __iter__(self):
-        return self
-
-    def __next__(self):
-        i = self.i
-        self.i += 1
-        if self.i > len(self):
-            self.i = 0
-            raise StopIteration
-        return self[i]
+        return [ds[i % len(ds)] for ds in self.ds]
 
 
 if __name__ == '__main__':
-    device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
-    dl = OmniglotDataLoader(device, 10)
-    print(len(dl.ds), dl.ds.batch_size)
-    print(len(dl), dl.batch_size)
+    device = "cuda" if torch.cuda.is_available() else "cpu"
+    # train_data = OmniglotDataset(background=True, device=device)
+    # train_dataloader = DataLoader(train_data, batch_size=64, shuffle=True)
+    # # print(len(train_dataloader.ds), train_dataloader.ds.batch_size)
+    # print(f'Batch Size: {train_dataloader.batch_size}')
+    # print(
+    #     f'Dataloader Length = 964/{train_dataloader.batch_size}: {len(train_dataloader)}')
+    # for X, y in train_dataloader:
+    #     print(f'Shape of X and dtype: {X.shape}, {X.dtype}')
+    #     print(f'Shape of y and dtype: {y.shape}, {y.dtype}')
+    #     break
+
+    train_ds = OmniglotDataset(support_num_exam_per_class=3, query_num_exam_per_class=1, background=True, device=device)
+    test_ds = OmniglotDataset(support_num_exam_per_class=1, query_num_exam_per_class=3, background=False, device=device)
+
+    ds = Siamese(train_ds, test_ds)
+
+    dl = DataLoader(ds, batch_size=5, shuffle=True, drop_last=True)
+
+    print("Train Dataset Length: ", len(train_ds))
+    print("Test Dataset Length: ", len(test_ds))
+    print("Dataloader Length: ", len(dl))
+
     for i, a in enumerate(dl):
-        print(i, a[1].shape, a[1].shape)
+        # a[0] is the training dataset with a length of 2
+        # a[0][0] is a list containing the support and query set of this batch, a[0][1] are the classes only in this batch
+        # a[1] is the testing dataset
+
+        if i == 0:
+            print(f'a[0][0] is a list containing the support and query set of this batch')
+            print(a[0][0]) # grabs a list of length 2 containing the support and query set
+            print()
+            print(f'a[0][0][0] is the support set') # grabs the support set
+            print(a[0][0][0])
+            print()
+            print(f'a[0][1] are the classes only in this batch')
+            print(a[0][1]) # grabs the tensor array containing all classes only in this batch
+            # print(a[0][1][0]) # grabs first class of this batch
+            print()
+            classes = a[0][1].numpy()
+            target_indices = np.array(range(len(a[0][1])))
+            class_to_index = dict(zip(classes, target_indices))
+            print(class_to_index)
+            print(classes[1])
+            print(class_to_index.get(classes[1]))
+            print()
+
+        print(
+            f'{i:<5}',
+            # (batch_size=num_classes, shots=num_examples_per_class, num_channels_per_image=1, 28, 28)
+            a[0][0][0].shape, # support set
+            a[0][0][1].shape, # query set
+            # support and query set have the same size, both have K classes w/ N examples per class
+            # a[0][1],
+            a[1][0][0].shape,
+            a[1][0][1].shape,
+            # a[1][1],
+        )
