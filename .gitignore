@@ -3,3 +3,5 @@
 datasets/
 models/
 logs/
+saves/
+analysis/graphs/

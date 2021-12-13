@@ -29,8 +29,7 @@ class OmniglotDataset(Dataset):
     def __getitem__(self, i):
         a = i * 20
         b = a + 20
-        x = torch.cat([self.ds[j][0].unsqueeze(0) for j in range(a, b)])
-        x = x.to(self.device)
+        x = torch.cat([self.ds[j][0].unsqueeze(0) for j in range(a, b)]).to(self.device)
         mask = torch.randperm(20).to(self.device)
         # returns: (support_set, query_set), target_label of images of this class
         return (x[mask[0:self.support_num_exam_per_class]], x[mask[self.support_num_exam_per_class:self.support_num_exam_per_class + self.query_num_exam_per_class]]), i
