@@ -213,6 +213,23 @@ def omniglotCallBack(
     return loss, acc
 
 
+def imgNetCallBack(
+        model,
+        dataloader,
+        optimizer,
+        loss_fn,
+        train=True
+):
+
+    if train:
+        model.train()
+        optimizer.zero_grad()
+    else:
+        model.eval()
+
+    ()
+
+
 if __name__ == '__main__':
     device = "cuda" if torch.cuda.is_available() else "cpu"
 
@@ -229,13 +246,15 @@ if __name__ == '__main__':
     dataloader = DataLoader(ds, batch_size=20, shuffle=True, drop_last=True)
 
     # model = arch.MatchingNets(device, 1, 64)
-    model = arch.RelationNetwork(
-        1, 64, 128, 64, 64, 20, 1
-    )
+    # model = arch.RelationNetwork(
+    #     1, 64, 128, 64, 64, 20, 1
+    # )
+    model = arch.CustomNetwork(20, 1, 64, 3, device).to(device)
     model.__name__ = model.__name__ + input('Model Name:\n')
     print(f'Training {model.__name__}')
-    optimizer = optim.Adam(model.parameters(), lr=0.0005)
-    scheduler = optim.lr_scheduler.MultiStepLR(optimizer, [40, 250, 1000])
+    optimizer = optim.Adam(model.parameters(), lr=0.001)
+    scheduler = optim.lr_scheduler.MultiStepLR(
+        optimizer, [40, 250, 1000], gamma=0.5)
     # loss_fn = nn.CrossEntropyLoss()
     # loss_fn = nn.NLLLoss()
     loss_fn = nn.MSELoss()
