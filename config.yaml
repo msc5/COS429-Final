@@ -10,8 +10,8 @@ name: 20-way-5-shot
 dataset: Omniglot
 # dataset: miniImageNet
 
-loss_fn: MSE
-# loss_fn: NLL
+# loss_fn: MSE
+loss_fn: NLL
 # loss_fn: CrossEntropy
 
 k: 20 # Number of classes
