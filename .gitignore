@@ -5,3 +5,6 @@ models/
 logs/
 saves/
 analysis/graphs/
+data/processed_images/*
+**/processed_images/*
+episode_filename_list/

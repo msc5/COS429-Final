@@ -29,14 +29,16 @@ class Embedding(nn.Module):
             nn.MaxPool2d(2)
         )
         self.conv3 = nn.Sequential(
-            nn.Conv2d(out_channels, out_channels, kernel_size=3, padding="same"),
+            nn.Conv2d(out_channels, out_channels,
+                      kernel_size=3, padding="same"),
             nn.BatchNorm2d(out_channels),
-            nn.ReLU(),  
+            nn.ReLU(),
         )
         self.conv4 = nn.Sequential(
-            nn.Conv2d(out_channels, out_channels, kernel_size=3, padding="same"),
+            nn.Conv2d(out_channels, out_channels,
+                      kernel_size=3, padding="same"),
             nn.BatchNorm2d(out_channels),
-            nn.ReLU(),  
+            nn.ReLU(),
         )
 
     def forward(self, x, is_sup_set: bool):
@@ -109,7 +111,7 @@ class Relation(nn.Module):
 
 class RelationNetwork(nn.Module):
 
-    def __init__(self, in_embed, out_embed, in_rel, out_rel, in_feat_rel, num_classes, support_num_examples_per_class, query_num_examples_per_class):
+    def __init__(self, in_embed, out_embed, in_feat_rel, num_classes, support_num_examples_per_class, query_num_examples_per_class):
         """
         Relation Network
         Arguments:
@@ -121,7 +123,8 @@ class RelationNetwork(nn.Module):
         self.__name__ = 'RelationNetwork'
 
         self.embed = Embedding(in_embed, out_embed)
-        self.relation = Relation(in_rel, out_rel, in_feat_rel)
+        # 128, 64
+        self.relation = Relation(2 * out_embed, out_embed, in_feat_rel)
 
     def forward(self, support_set, query_set):
         query_embed = self.embed(query_set, False)
@@ -137,7 +140,8 @@ class RelationNetwork(nn.Module):
         # thus, in the support set, each class will only have one embedding (num_class * 1 for query set) whereas in the query set, each class will have query_num_examples_per_class embeddings (num_class * query_num_examples_per_class for supp set)
         query_embed = query_embed.repeat(self.num_classes * 1, 1, 1, 1, 1)
         query_embed = torch.permute(query_embed, (1, 0, 2, 3, 4))
-        support_embed = support_embed.repeat(self.num_classes * self.query_num_examples_per_class, 1, 1, 1, 1)
+        support_embed = support_embed.repeat(
+            self.num_classes * self.query_num_examples_per_class, 1, 1, 1, 1)
         # print(f'query_embed shape: {query_embed.shape}')
         # print()
         # print(f'support_embed shape: {support_embed.shape}')
@@ -162,11 +166,12 @@ if __name__ == '__main__':
     support_num_examples_per_class = 1
     query_num_examples_per_class = 4
 
-
     # Mimic Omniglot
     # model = RelationNetwork(1, 64, 128, 64, 64, num_classes=num_classes, support_num_examples_per_class=support_num_examples_per_class, query_num_examples_per_class=query_num_examples_per_class).to(device)
     # summary(model, input_size=[(num_classes, support_num_examples_per_class, 1, 28, 28), (num_classes, query_num_examples_per_class, 1, 28, 28)])
 
     # Mimic Mini Image Net Mimic
-    model = RelationNetwork(3, 64, 128, 64, 576, num_classes=num_classes, support_num_examples_per_class=support_num_examples_per_class, query_num_examples_per_class=query_num_examples_per_class).to(device)
-    summary(model, input_size=[(num_classes, support_num_examples_per_class, 3, 84, 84), (num_classes, query_num_examples_per_class, 3, 84, 84)])
+    model = RelationNetwork(3, 64, 128, 64, 576, num_classes=num_classes, support_num_examples_per_class=support_num_examples_per_class,
+                            query_num_examples_per_class=query_num_examples_per_class).to(device)
+    summary(model, input_size=[(num_classes, support_num_examples_per_class,
+            3, 84, 84), (num_classes, query_num_examples_per_class, 3, 84, 84)])
