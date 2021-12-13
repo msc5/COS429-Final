@@ -274,11 +274,11 @@ if __name__ == '__main__':
     device = "cuda" if torch.cuda.is_available() else "cpu"
 
     ### TASK SETUP ###
-    # 5 classes w/ 1 example per class (5-way 1-shot)
+    # 5 classes w/ 5 example per class (5-way 5-shot)
     num_classes = 5
-    support_num_examples_per_class = 1
-    query_num_examples_per_class = 4 # for training
-    test_query_num_examples_per_class = 4 # for testing
+    support_num_examples_per_class = 5
+    query_num_examples_per_class = 15 # for training
+    test_query_num_examples_per_class = 15 # for testing
 
     # Omniglot
     train_ds = data.OmniglotDataset(support_num_exam_per_class=support_num_examples_per_class, query_num_exam_per_class=query_num_examples_per_class, device=device, background=True)
@@ -293,11 +293,14 @@ if __name__ == '__main__':
     # batch size is the number of classes in the support set and query set (they both have same number of classes)
     train_dataloader = DataLoader(ds, batch_size=num_classes, shuffle=True, drop_last=True)
     num_episodes_per_epoch = len(train_dataloader)
-    episode_factor = 4 # change depending on task
+    episode_factor = 5 # change depending on task
 
     # test_dataloader = DataLoader(test_ds, batch_size=num_classes, shuffle=False, drop_last=True)
 
     # model = arch.MatchingNets(device, 1, 64).to(device)
+    # for mini Image Net
+    # model = arch.RelationNetwork(3, 64, 128, 64, 576, num_classes=num_classes, support_num_examples_per_class=support_num_examples_per_class, query_num_examples_per_class=query_num_examples_per_class).to(device)
+    # Omniglot
     model = arch.RelationNetwork(1, 64, 128, 64, 64, num_classes=num_classes, support_num_examples_per_class=support_num_examples_per_class, query_num_examples_per_class=query_num_examples_per_class)
     # model = arch.CustomNetwork(20, 1, 64, 3, device).to(device)
 
@@ -312,7 +315,7 @@ if __name__ == '__main__':
 
     if model.__name__ == "RelationNetwork":
         # change this back to lr=10e-3
-        optimizer = optim.Adam(model.parameters(), lr=5e-3)
+        optimizer = optim.Adam(model.parameters(), lr=10e-3)
         scheduler = optim.lr_scheduler.MultiStepLR(optimizer, [100000/(episode_factor * num_episodes_per_epoch), 200000/(episode_factor * num_episodes_per_epoch), 300000/(episode_factor * num_episodes_per_epoch), 400000/(episode_factor * num_episodes_per_epoch)], gamma=0.5)
         loss_fn = nn.MSELoss()
     elif model.__name__ == "MatchingNets":

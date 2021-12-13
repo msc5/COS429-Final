@@ -51,10 +51,10 @@ class Embedding(nn.Module):
             # reshape back into num_class x num_examples x [determined by convolution filters and downsampling]
 
             # Omniglot
-            # x4 = x4.view(num_classes, num_examples_per_class, 64, 5, 5)
+            x4 = x4.view(num_classes, num_examples_per_class, 64, 5, 5)
 
             # Mini Image net
-            x4 = x4.view(num_classes, num_examples_per_class, 64, 19, 19)
+            # x4 = x4.view(num_classes, num_examples_per_class, 64, 19, 19)
 
             # element-wise sum of embeddings of all examples of each class
             x4 = torch.sum(x4, 1)
@@ -80,7 +80,7 @@ class Relation(nn.Module):
         # No padding here for ImageNet
         # Padding="same" for Omniglot
         self.conv2 = nn.Sequential(
-            nn.Conv2d(out_channels, out_channels, kernel_size=3),
+            nn.Conv2d(out_channels, out_channels, kernel_size=3, padding="same"),
             nn.BatchNorm2d(out_channels),
             nn.ReLU(),
             nn.MaxPool2d(2)
@@ -99,21 +99,9 @@ class Relation(nn.Module):
         # need to reshape again like above for convolution to work
         _, _, map_chan, height, width = x.shape
         z = x.view(-1, map_chan, height, width)
-        print(f'Z shape before 1st conv')
-        print(z.shape)
-        print()
         z = self.conv1(z)
-        print(f'Z shape before 2nd conv')
-        print(z.shape)
-        print()
         z = self.conv2(z)
-        print(f'Z shape before flatten')
-        print(z.shape)
-        print()
         z = self.flatten(z)
-        print(f'Z shape after flatten conv')
-        print(z.shape)
-        print()
         z = self.linear1(z)
         z = self.linear2(z)
         return z
