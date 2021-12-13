@@ -37,7 +37,7 @@ class Logger:
     ):
         data = torch.tensor((*results, elapsed_time))
         self.data[self.e, self.b, :] = data
-        means = self.data[self.e, 0:self.b + 1, :].mean(dim=0)
+        means = self.data[self.e, 0:self.b + 1, 0:5].mean(dim=0)
         msg = self.msg(means)
         self.b += 1
         if self.b == self.batches:
@@ -48,11 +48,12 @@ class Logger:
         return msg
 
     def msg(self, data):
-        train_loss, train_acc, test_loss, test_acc, _ = data
+        train_loss, train_acc, test_loss, test_acc, elapsed_time = data
         msg = (
             f'{"":10}{self.e:<8}{self.b + 1:<3} / {self.batches:<6}'
             f'{train_loss:<10.4f}{train_acc:<10.4f}'
             f'{test_loss:<10.4f}{test_acc:<10.4f}'
+            f'{elapsed_time:<10.4f}'
         )
         return msg
 
@@ -180,6 +181,7 @@ def omniglotCallBack(
         inputs,
         optimizer,
         loss_fn,
+        device,
         train=True
 ):
 
@@ -189,8 +191,8 @@ def omniglotCallBack(
     else:
         model.eval()
 
-    (s, q), _ = inputs
-    pred = model(s, q)
+    (s, t), _ = inputs
+    pred = model(s, t)
 
     k = int(pred.shape[1])
     n = int(pred.shape[0] / k)
@@ -213,29 +215,80 @@ def omniglotCallBack(
     return loss, acc
 
 
+def imagenetCallBack(
+        model,
+        inputs,
+        optimizer,
+        loss_fn,
+        train=True
+):
+
+    if train:
+        model.train()
+        optimizer.zero_grad()
+    else:
+        model.eval()
+
+    (ss, sl), (ts, tl) = inputs
+
+    ss = torch.permute(ss, (1, 0, 2, 3, 4))
+    ts = torch.permute(ts, (1, 0, 2, 3, 4))
+    sl = sl.squeeze(0)
+    tl = tl.squeeze(0)
+    k = sl.shape[1]
+    n = int(sl.shape[0] / k)
+    m = int(tl.shape[0] / k)
+
+    # print(ss.shape, ts.shape)
+    pred = model(ss, ts)
+    lab = tl
+
+    # Compute Loss
+    loss_t = loss_fn(pred, lab)
+    loss = loss_t.item()
+
+    # Compute Accuracy
+    correct = torch.sum(pred.argmax(dim=1) == lab.argmax(dim=1)).item()
+    acc = correct / pred.shape[0]
+
+    if train:
+        loss_t.backward()
+        clip_grad_norm_(model.parameters(), 1)
+        optimizer.step()
+
+    return loss, acc
+
+
 if __name__ == '__main__':
     device = "cuda" if torch.cuda.is_available() else "cpu"
+    # device = 'cpu'
 
-    num_classes = 20
+    num_classes = 5
     num_examples_per_class = 1
     # train_dataset = data.OmniglotDataset(background=True, device=device)
     # train_dataloader = DataLoader(train_dataset, batch_size=64, shuffle=True)
 
-    train_ds = data.OmniglotDataset(
-        shots=num_examples_per_class, background=True, device=device)
-    test_ds = data.OmniglotDataset(
-        shots=num_examples_per_class, background=False, device=device)
-    ds = data.Siamese(train_ds, test_ds)
-    dataloader = DataLoader(ds, batch_size=20, shuffle=True, drop_last=True)
+    # train_ds = data.OmniglotDataset(
+    #     shots=num_examples_per_class, background=True, device=device)
+    # test_ds = data.OmniglotDataset(
+    #     shots=num_examples_per_class, background=False, device=device)
 
-    # model = arch.MatchingNets(device, 1, 64)
+    train_ds = data.ImageNetDataLoader(5, 1, 1, phase='train', device=device)
+    test_ds = data.ImageNetDataLoader(5, 1, 1, phase='test', device=device)
+
+    ds = data.Siamese(train_ds, test_ds)
+    dataloader = DataLoader(ds, batch_size=1, shuffle=True, drop_last=True)
+
+    # model = arch.MatchingNets(device, 3, 64)
     model = arch.RelationNetwork(
-        1, 64, 128, 64, 64, 20, 1
+        3, 64, 128, 64, 576, 5, 1
     )
+    # model = arch.CustomNetwork(20, 3, 64, 3, device).to(device)
     model.__name__ = model.__name__ + input('Model Name:\n')
     print(f'Training {model.__name__}')
-    optimizer = optim.Adam(model.parameters(), lr=0.0005)
-    scheduler = optim.lr_scheduler.MultiStepLR(optimizer, [40, 250, 1000])
+    optimizer = optim.Adam(model.parameters(), lr=0.01)
+    scheduler = optim.lr_scheduler.MultiStepLR(
+        optimizer, [10, 20, 50, 100], gamma=0.5)
     # loss_fn = nn.CrossEntropyLoss()
     # loss_fn = nn.NLLLoss()
     loss_fn = nn.MSELoss()
@@ -245,7 +298,7 @@ if __name__ == '__main__':
     train(
         model,
         dataloader,
-        omniglotCallBack,
+        imagenetCallBack,
         optimizer,
         scheduler,
         loss_fn,
