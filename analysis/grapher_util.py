@@ -1,8 +1,8 @@
 """
-    python grapher_util.py graph_config.yaml
+    python ./analysis/grapher_util.py
 
     vvv IMPORTANT vvv
-    RUN it in the ./analysis directory, the relative directory creation
+    RUN it in the ROOT directory, the relative directory creation
     is not implemented cleanly!
 
     Given the log data tensors from logger, creates the (training 
@@ -48,12 +48,10 @@ def read_logdata(path):
         total_e += 1
         is_nonzero = torch.is_nonzero(data[total_e, 0, 0])
 
-    epoch_arr = np.arange(start=0, stop=total_e)
-
-    train_loss_arr = np.ndarray((len(epoch_arr)))
-    train_acc_arr = np.ndarray((len(epoch_arr)))
-    test_loss_arr = np.ndarray((len(epoch_arr)))
-    test_acc_arr = np.ndarray((len(epoch_arr)))
+    train_loss_arr = np.ndarray(total_e)
+    train_acc_arr = np.ndarray(total_e)
+    test_loss_arr = np.ndarray(total_e)
+    test_acc_arr = np.ndarray(total_e)
 
     for e in range(total_e):
 
@@ -65,16 +63,31 @@ def read_logdata(path):
     return train_loss_arr, train_acc_arr, test_loss_arr, test_acc_arr
 
 
+def find_num_epochs(some_metric_list):
+    """
+        Given a list of train/test loss/acc array,
+        returns the smallest total number of epochs of these different model trainings.
+    """
+    smallest_e = np.inf
+
+    for metric_arr in some_metric_list:
+        num_e = len(metric_arr)
+        if num_e < smallest_e:
+            smallest_e = num_e
+
+    return smallest_e
+
+
 ###########################
 #           Main          #
 ###########################
 if __name__ == "__main__":
 
-    error_msg = "Usage: python /path/to/grapher_util.py <PATH/TO/CONFIG/YAML>"
-    if len(argv) != 2:
+    error_msg = "Usage: python ./analysis/grapher_util.py"
+    if len(argv) != 1:
         exit(error_msg)
 
-    path_to_config = argv[1]
+    path_to_config = "./analysis/graph_config.yaml"  # default value for easier usage
 
     with open(path_to_config, 'r') as file:
         config_dict = yaml.safe_load(file)
@@ -89,24 +102,82 @@ if __name__ == "__main__":
 
     for logdata in config_dict["logdatas"]:
 
-        train_loss_arr, train_acc_arr, test_loss_arr, test_acc_arr
-        list_of_train_losses.append()
+        train_loss_arr, train_acc_arr, test_loss_arr, test_acc_arr = read_logdata(
+            logdata["path"])
+        list_of_train_losses.append(train_loss_arr)
+        list_of_train_accs.append(train_acc_arr)
+        list_of_test_losses.append(test_loss_arr)
+        list_of_test_accs.append(test_acc_arr)
 
+    total_e = find_num_epochs(list_of_train_losses)
+    epoch_arr = np.arange(start=0, stop=total_e)
 
-plt.plot(epoch_arr, train_loss_arr, color="red", label="Training Loss")
-plt.plot(epoch_arr, test_loss_arr, color="blue", label="Testing Loss")
-plt.title("Loss over Training Epochs")
-plt.xlabel("Epoch")
-plt.ylabel("Loss")
-plt.legend()
-plt.savefig("analysis/graphs/loss.png")
-plt.close()
+    ### train loss plot ###
+    series = 0  # index of series plotting
+    for logdata in config_dict["logdatas"]:
+        train_loss_arr = list_of_train_losses[series]
+        plt.plot(epoch_arr, train_loss_arr[:total_e], label=logdata["label"])
+        series += 1
+    plt.title("Training Loss")
+    plt.xlabel("Epoch")
+    plt.ylabel("Loss")
+    plt.legend()
+    plt.savefig(config_dict["graph_dir_path"] + "/train_loss.png")
+    plt.close()
 
-plt.plot(epoch_arr, train_acc_arr, color="red", label="Training Accuracy")
-plt.plot(epoch_arr, test_acc_arr, color="blue", label="Testing Accuracy")
-plt.title("Classification Accuracy over Training Epochs")
-plt.xlabel("Epoch")
-plt.ylabel("Accuracy")
-plt.legend()
-plt.savefig("analysis/graphs/acc.png")
-plt.close()
+    ### train acc plot ###
+    series = 0  # index of series plotting
+    for logdata in config_dict["logdatas"]:
+        train_acc_arr = list_of_train_accs[series]
+        plt.plot(epoch_arr, train_acc_arr[:total_e], label=logdata["label"])
+        series += 1
+    plt.title("Training Classification Accuracy")
+    plt.xlabel("Epoch")
+    plt.ylabel("Accuracy")
+    plt.legend()
+    plt.savefig(config_dict["graph_dir_path"] + "/train_acc.png")
+    plt.close()
+
+    ### test loss plot ###
+    series = 0  # index of series plotting
+    for logdata in config_dict["logdatas"]:
+        test_loss_arr = list_of_test_losses[series]
+        plt.plot(epoch_arr, test_loss_arr[:total_e], label=logdata["label"])
+        series += 1
+    plt.title("Testing Loss")
+    plt.xlabel("Epoch")
+    plt.ylabel("Loss")
+    plt.legend()
+    plt.savefig(config_dict["graph_dir_path"] + "/test_loss.png")
+    plt.close()
+
+    ### test acc plot ###
+    series = 0  # index of series plotting
+    for logdata in config_dict["logdatas"]:
+        test_acc_arr = list_of_test_accs[series]
+        plt.plot(epoch_arr, test_acc_arr[:total_e], label=logdata["label"])
+        series += 1
+    plt.title("Testing Classification Accuracy")
+    plt.xlabel("Epoch")
+    plt.ylabel("Accuracy")
+    plt.legend()
+    plt.savefig(config_dict["graph_dir_path"] + "/test_acc.png")
+    plt.close()
+
+# plt.plot(epoch_arr, train_loss_arr, color="red", label="Training Loss")
+# plt.plot(epoch_arr, test_loss_arr, color="blue", label="Testing Loss")
+# plt.title("Loss over Training Epochs")
+# plt.xlabel("Epoch")
+# plt.ylabel("Loss")
+# plt.legend()
+# plt.savefig("analysis/graphs/loss.png")
+# plt.close()
+
+# plt.plot(epoch_arr, train_acc_arr, color="red", label="Training Accuracy")
+# plt.plot(epoch_arr, test_acc_arr, color="blue", label="Testing Accuracy")
+# plt.title("Classification Accuracy over Training Epochs")
+# plt.xlabel("Epoch")
+# plt.ylabel("Accuracy")
+# plt.legend()
+# plt.savefig("analysis/graphs/acc.png")
+# plt.close()
