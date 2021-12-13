@@ -162,6 +162,6 @@ if __name__ == '__main__':
     l = 3
     # device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
     device = 'cpu'
-    model = CustomNetwork(l, s, c, 64, k, n, m, device).to(device)
+    model = CustomNetwork(l, s, c, 16, k, n, m, device).to(device)
     summary(model, input_size=[(k, n, c, s, s),
             (k, m, c, s, s)], device=device)

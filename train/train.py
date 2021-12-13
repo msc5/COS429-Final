@@ -3,21 +3,12 @@ import torch.nn as nn
 import torch.optim as optim
 import numpy as np
 from torch.utils.data.dataloader import DataLoader
-
 from torch.utils.data import DataLoader
 from torch.nn.utils import clip_grad_norm_
-
-from torchvision import transforms
-
 import matplotlib.pyplot as plt
-
 import numpy as np
-
 from tqdm import tqdm
-
-
 import os
-import io
 import time
 import yaml
 import shutil
@@ -44,7 +35,7 @@ class Logger:
     ):
         data = torch.tensor((*results, elapsed_time))
         self.data[self.e, self.b, :] = data
-        means = self.data[self.e, 0:self.b + 1, 0:5].mean(dim=0)
+        means = self.data[self.e, 0:self.b + 1, :].mean(dim=0)
         msg = self.msg(means)
         self.b += 1
         if self.b == self.batches:
@@ -136,13 +127,25 @@ def train(
             leave=False,
         )
         for j, (train_ds, test_ds) in enumerate(t):
-            results = (
-                *callback(model, train_ds, optimizer,
-                          loss_fn, device, train=True),
-                *callback(model, test_ds, None, loss_fn, device, train=False)
+            train_results = callback(
+                model,
+                train_ds,
+                optimizer,
+                loss_fn,
+                device,
+                train=True
             )
+            with torch.no_grad():
+                test_results = callback(
+                    model,
+                    test_ds,
+                    None,
+                    loss_fn,
+                    device,
+                    train=False
+                )
             toc = time.perf_counter()
-            log = logger.log(results, toc - tic)
+            log = logger.log((*train_results, *test_results), toc - tic)
             t.set_description(log)
 
         print(log)
@@ -182,10 +185,17 @@ def test(
     print(logger.header())
     tic = time.perf_counter()
 
-    for j, test_ds in enumerate(dataloader):
-        results = callback(model, test_ds, None, loss_fn, device, train=False)
-        toc = time.perf_counter()
-        log = logger.log(results, toc - tic)
+    with torch.no_grad():
+        for j, test_ds in enumerate(dataloader):
+            results = callback(
+                model,
+                test_ds,
+                None,
+                loss_fn, device,
+                train=False
+            )
+            toc = time.perf_counter()
+            log = logger.log((0, 0, *results), toc - tic)
 
     print(log)
 
@@ -309,10 +319,7 @@ if __name__ == '__main__':
 
     device = "cuda" if torch.cuda.is_available() else "cpu"
 
-    # Training or Testing
-    mode = config['mode']
-
-    # Task Setup
+    # Task setup
     k = config['k']           # Number of classes
     n = config['n']           # Number of examples per support class
     m = config['m']           # Number of examples per query class
@@ -327,6 +334,12 @@ if __name__ == '__main__':
             shuffle=True,
             drop_last=True
         )
+        test_dataloader = DataLoader(
+            test_ds,
+            batch_size=k,
+            shuffle=True,
+            drop_last=True
+        )
         callback = omniglotCallBack
         filters_in = 1
         s = 28
@@ -337,7 +350,7 @@ if __name__ == '__main__':
     elif config['arch'] == 'MatchingNetwork':
         model = arch.MatchingNets(device, filters_in, 64)
     elif config['arch'] == 'CustomNetwork':
-        model = arch.CustomNetwork(3, s, filters_in, 64, k, n, m, device)
+        model = arch.CustomNetwork(3, s, filters_in, 16, k, n, m, device)
 
     if config['loss_fn'] == 'MSE':
         loss_fn = nn.MSELoss()
@@ -347,6 +360,7 @@ if __name__ == '__main__':
         loss_fn = nn.CrossEntropy()
 
     model_name = config['name']
+    model_arch = config['arch']
     lr = config['learning_rate']
     schedule = config['schedule']
     epochs = config['epochs']
@@ -354,7 +368,10 @@ if __name__ == '__main__':
     optimizer = optim.Adam(model.parameters(), lr=lr)
     scheduler = optim.lr_scheduler.MultiStepLR(optimizer, schedule, gamma=0.5)
 
-    if config['mode'] == 'train':
+    print(
+        f'Training {model_arch} {model_name} on {k}-way {n}-shot {m}-query-shot')
+
+    if config['train']:
         train(
             model_name,
             model,
@@ -366,11 +383,11 @@ if __name__ == '__main__':
             epochs,
             device
         )
-    if config['mode'] == 'test':
+    if config['test']:
         test(
             model_name,
             model,
-            dataloader,
+            test_dataloader,
             callback,
             loss_fn,
             device,

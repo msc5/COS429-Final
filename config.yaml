@@ -1,9 +1,18 @@
+<<<<<<< HEAD
 mode: train
   # mode: test
 
   # arch: CustomNetwork
   # arch: RelationNetwork
 arch: MatchingNetwork
+=======
+train: True
+test: False
+
+arch: CustomNetwork
+# arch: RelationNetwork
+# arch: MatchingNetwork
+>>>>>>> fe30df3164aee34c679770f46be3d2a8d10170df
 
 name: 20-way-1-shot
 
@@ -18,7 +27,7 @@ k: 20 # Number of classes
 n: 1 # Number of examples per support class
 m: 19 # Number of examples per query class
 
-epochs: 500
+epochs: 250
 learning_rate: 0.001
 schedule:
   - 40
