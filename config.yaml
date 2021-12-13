@@ -1,11 +1,15 @@
 train: True
-test: True
+test: False
 
 arch: CustomNetwork
 # arch: RelationNetwork
 # arch: MatchingNetwork
 
+<<<<<<< HEAD
 name: 20-way-1-shot
+=======
+name: 20-way-5-shot
+>>>>>>> f7ae2f32b2e0575a7f52e2e45fe92d3f018b2411
 
 dataset: Omniglot
 # dataset: miniImageNet
@@ -15,8 +19,13 @@ loss_fn: MSE
 # loss_fn: CrossEntropy
 
 k: 20 # Number of classes
+<<<<<<< HEAD
 n: 1 # Number of examples per support class
 m: 19 # Number of examples per query class
+=======
+n: 5 # Number of examples per support class
+m: 10 # Number of examples per query class
+>>>>>>> f7ae2f32b2e0575a7f52e2e45fe92d3f018b2411
 
 epochs: 250
 learning_rate: 0.001
