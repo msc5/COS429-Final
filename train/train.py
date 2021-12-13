@@ -35,8 +35,9 @@ class Logger:
     ):
         data = torch.tensor((*results, elapsed_time))
         self.data[self.e, self.b, :] = data
-        means = self.data[self.e, 0:self.b + 1, 0:5].mean(dim=0)
-        msg = self.msg(means)
+        means = self.data[self.e, 0:self.b + 1, 0:4].mean(dim=0)
+        times = self.data[self.e, 0:self.b + 1, 4:5]
+        msg = self.msg(torch.cat((means, times), dim=0))
         self.b += 1
         if self.b == self.batches:
             self.b = 0
@@ -328,7 +329,7 @@ if __name__ == '__main__':
     elif config['arch'] == 'MatchingNetwork':
         model = arch.MatchingNets(device, filters_in, 64)
     elif config['arch'] == 'CustomNetwork':
-        model = arch.CustomNetwork(3, s, filters_in, 64, k, n, m, device)
+        model = arch.CustomNetwork(3, s, filters_in, 16, k, n, m, device)
 
     if config['loss_fn'] == 'MSE':
         loss_fn = nn.MSELoss()
@@ -345,7 +346,7 @@ if __name__ == '__main__':
     optimizer = optim.Adam(model.parameters(), lr=lr)
     scheduler = optim.lr_scheduler.MultiStepLR(optimizer, schedule, gamma=0.5)
 
-    if config['mode'] == 'train':
+    if config['train']:
         train(
             model_name,
             model,
@@ -357,7 +358,7 @@ if __name__ == '__main__':
             epochs,
             device
         )
-    if config['mode'] == 'test':
+    if config['test']:
         test(
             model_name,
             model,

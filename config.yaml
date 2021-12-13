@@ -1,8 +1,8 @@
-mode: train
-# mode: test
+train: True
+test: False
 
-# arch: CustomNetwork
-arch: RelationNetwork
+arch: CustomNetwork
+# arch: RelationNetwork
 # arch: MatchingNetwork
 
 name: 20-way-1-shot
