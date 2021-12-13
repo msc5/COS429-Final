@@ -37,7 +37,7 @@ class Logger:
     ):
         data = torch.tensor((*results, elapsed_time))
         self.data[self.e, self.b, :] = data
-        means = self.data[self.e, 0:self.b + 1, :].mean(dim=0)
+        means = self.data[self.e, 0:self.b + 1, 0:5].mean(dim=0)
         msg = self.msg(means)
         self.b += 1
         if self.b == self.batches:
@@ -48,11 +48,12 @@ class Logger:
         return msg
 
     def msg(self, data):
-        train_loss, train_acc, test_loss, test_acc, _ = data
+        train_loss, train_acc, test_loss, test_acc, elapsed_time = data
         msg = (
             f'{"":10}{self.e:<8}{self.b + 1:<3} / {self.batches:<6}'
             f'{train_loss:<10.4f}{train_acc:<10.4f}'
             f'{test_loss:<10.4f}{test_acc:<10.4f}'
+            f'{elapsed_time:<10.4f}'
         )
         return msg
 
@@ -123,7 +124,8 @@ def train(
         )
         for j, (train, test) in enumerate(t):
             results = (
-                *callback(model, train, optimizer, loss_fn, device, train=True),
+                *callback(model, train, optimizer,
+                          loss_fn, device, train=True),
                 *callback(model, test, None, loss_fn, device, train=False)
             )
             toc = time.perf_counter()
@@ -199,8 +201,11 @@ def omniglotCallBack(
 
     # target_indices = np.array(range(len(classes)))
     # class_to_index = dict(zip(classes, target_indices))
-    # is it the case that the first query_num_examples_per_class rows (each row is a query in the prediction) still corresponds to the first class in the classes array after all the reshaping and calculations done in the RelationNetwork model?
-    lab = torch.eye(num_classes).repeat_interleave(query_num_examples_per_class, dim=0).to(device)
+    # is it the case that the first query_num_examples_per_class rows (each row is a query in the prediction)
+    # still corresponds to the first class in the classes array after all the reshaping and calculations
+    # done in the RelationNetwork model?
+    lab = torch.eye(num_classes).repeat_interleave(
+        query_num_examples_per_class, dim=0).to(device)
 
     # Compute Loss
     loss_t = loss_fn(pred, lab)
@@ -270,19 +275,66 @@ def imagenetCallBack(
     return loss, acc
 
 
+def imagenetCallBack(
+        model,
+        inputs,
+        optimizer,
+        loss_fn,
+        train=True
+):
+
+    if train:
+        model.train()
+        optimizer.zero_grad()
+    else:
+        model.eval()
+
+    (ss, sl), (ts, tl) = inputs
+
+    ss = torch.permute(ss, (1, 0, 2, 3, 4))
+    ts = torch.permute(ts, (1, 0, 2, 3, 4))
+    sl = sl.squeeze(0)
+    tl = tl.squeeze(0)
+    k = sl.shape[1]
+    n = int(sl.shape[0] / k)
+    m = int(tl.shape[0] / k)
+
+    # print(ss.shape, ts.shape)
+    pred = model(ss, ts)
+    lab = tl
+
+    # Compute Loss
+    loss_t = loss_fn(pred, lab)
+    loss = loss_t.item()
+
+    # Compute Accuracy
+    correct = torch.sum(pred.argmax(dim=1) == lab.argmax(dim=1)).item()
+    acc = correct / pred.shape[0]
+
+    if train:
+        loss_t.backward()
+        clip_grad_norm_(model.parameters(), 1)
+        optimizer.step()
+
+    return loss, acc
+
+
 if __name__ == '__main__':
     device = "cuda" if torch.cuda.is_available() else "cpu"
+    # device = 'cpu'
 
     ### TASK SETUP ###
     # 5 classes w/ 1 example per class (5-way 1-shot)
     num_classes = 5
     support_num_examples_per_class = 1
-    query_num_examples_per_class = 4 # for training
-    test_query_num_examples_per_class = 4 # for testing
+    query_num_examples_per_class = 4  # for training
+    test_query_num_examples_per_class = 4  # for testing
 
     # Omniglot
-    train_ds = data.OmniglotDataset(support_num_exam_per_class=support_num_examples_per_class, query_num_exam_per_class=query_num_examples_per_class, device=device, background=True)
-    test_ds = data.OmniglotDataset(support_num_exam_per_class=support_num_examples_per_class, query_num_exam_per_class=test_query_num_examples_per_class, background=False, device=device)
+    train_ds = data.OmniglotDataset(support_num_exam_per_class=support_num_examples_per_class,
+                                    query_num_exam_per_class=query_num_examples_per_class, device=device, background=True)
+    test_ds = data.OmniglotDataset(support_num_exam_per_class=support_num_examples_per_class,
+                                   query_num_exam_per_class=test_query_num_examples_per_class, background=False, device=device)
 
     # Mini Image Net
     # train_ds = data.ImageNetDataLoader(20, 1, 1, phase='train')
@@ -291,14 +343,16 @@ if __name__ == '__main__':
     ds = data.Siamese(train_ds, test_ds)
 
     # batch size is the number of classes in the support set and query set (they both have same number of classes)
-    train_dataloader = DataLoader(ds, batch_size=num_classes, shuffle=True, drop_last=True)
+    train_dataloader = DataLoader(
+        ds, batch_size=num_classes, shuffle=True, drop_last=True)
     num_episodes_per_epoch = len(train_dataloader)
-    episode_factor = 4 # change depending on task
+    episode_factor = 4  # change depending on task
 
     # test_dataloader = DataLoader(test_ds, batch_size=num_classes, shuffle=False, drop_last=True)
 
     # model = arch.MatchingNets(device, 1, 64).to(device)
-    model = arch.RelationNetwork(1, 64, 128, 64, 64, num_classes=num_classes, support_num_examples_per_class=support_num_examples_per_class, query_num_examples_per_class=query_num_examples_per_class)
+    model = arch.RelationNetwork(1, 64, 128, 64, 64, num_classes=num_classes,
+                                 support_num_examples_per_class=support_num_examples_per_class, query_num_examples_per_class=query_num_examples_per_class)
     # model = arch.CustomNetwork(20, 1, 64, 3, device).to(device)
 
     # if want to load model and train/inference with an existing pre-trained model
@@ -313,16 +367,19 @@ if __name__ == '__main__':
     if model.__name__ == "RelationNetwork":
         # change this back to lr=10e-3
         optimizer = optim.Adam(model.parameters(), lr=5e-3)
-        scheduler = optim.lr_scheduler.MultiStepLR(optimizer, [100000/(episode_factor * num_episodes_per_epoch), 200000/(episode_factor * num_episodes_per_epoch), 300000/(episode_factor * num_episodes_per_epoch), 400000/(episode_factor * num_episodes_per_epoch)], gamma=0.5)
+        scheduler = optim.lr_scheduler.MultiStepLR(optimizer, [100000/(episode_factor * num_episodes_per_epoch), 200000/(
+            episode_factor * num_episodes_per_epoch), 300000/(episode_factor * num_episodes_per_epoch), 400000/(episode_factor * num_episodes_per_epoch)], gamma=0.5)
         loss_fn = nn.MSELoss()
     elif model.__name__ == "MatchingNets":
         # was lr=0.0005
         optimizer = optim.Adam(model.parameters(), lr=0.001)
-        scheduler = optim.lr_scheduler.MultiStepLR(optimizer, [100, 200, 300, 400], gamma=0.5)
+        scheduler = optim.lr_scheduler.MultiStepLR(
+            optimizer, [100, 200, 300, 400], gamma=0.5)
         loss_fn = nn.CrossEntropyLoss()
     elif model.__name__ == "CustomNetwork":
         optimizer = optim.Adam(model.parameters(), lr=0.001)
-        scheduler = optim.lr_scheduler.MultiStepLR(optimizer, [40, 250, 1000], gamma=0.5)
+        scheduler = optim.lr_scheduler.MultiStepLR(
+            optimizer, [40, 250, 1000], gamma=0.5)
         # loss_fn = nn.CrossEntropyLoss()
         # loss_fn = nn.NLLLoss()
         loss_fn = nn.MSELoss()

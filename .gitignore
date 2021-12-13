@@ -5,5 +5,11 @@ models/
 logs/
 saves/
 analysis/graphs/
+<<<<<<< HEAD
 episode_filename_list/
 processed_images/
+=======
+data/processed_images/*
+**/processed_images/*
+episode_filename_list/
+>>>>>>> eb3b1fc
