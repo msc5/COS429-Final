@@ -5,7 +5,7 @@ mode: train
 arch: RelationNetwork
 # arch: MatchingNetwork
 
-name: test1
+name: 20-way-1-shot
 
 dataset: Omniglot
 # dataset: miniImageNet
@@ -14,9 +14,9 @@ loss_fn: MSE
 # loss_fn: NLL
 # loss_fn: CrossEntropy
 
-k: 5 # Number of classes
-n: 5 # Number of examples per support class
-m: 15 # Number of examples per query class
+k: 20 # Number of classes
+n: 1 # Number of examples per support class
+m: 19 # Number of examples per query class
 
 epochs: 500
 learning_rate: 0.001

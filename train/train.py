@@ -20,6 +20,7 @@ import os
 import io
 import time
 import yaml
+import shutil
 
 # Our modules
 import arch
@@ -112,6 +113,8 @@ def train(
             return
     else:
         os.makedirs(model_dir)
+    config_path = os.path.join(model_dir, 'config.yaml')
+    shutil.copyfile('config.yaml', config_path)
 
     # Initialize Logger
     logger = Logger(epochs, num_batches, log_path)

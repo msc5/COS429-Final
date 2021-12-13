@@ -137,7 +137,8 @@ class RelationNetwork(nn.Module):
         self.__name__ = 'RelationNetwork'
 
         self.embed = Embedding(in_embed, out_embed)
-        self.relation = Relation(2 * out_embed, in_embed, in_feat_rel)
+        # 128, 64
+        self.relation = Relation(2 * out_embed, out_embed, in_feat_rel)
 
     def forward(self, support_set, query_set):
         query_embed = self.embed(query_set, False)
