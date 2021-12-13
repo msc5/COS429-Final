@@ -36,8 +36,7 @@ class Logger:
         data = torch.tensor((*results, elapsed_time))
         self.data[self.e, self.b, :] = data
         means = self.data[self.e, 0:self.b + 1, 0:4].mean(dim=0)
-        times = self.data[self.e, 0:self.b + 1, 4:5]
-        msg = self.msg(torch.cat((means, times), dim=0))
+        msg = self.msg(means)
         self.b += 1
         if self.b == self.batches:
             self.b = 0
@@ -128,13 +127,25 @@ def train(
             leave=False,
         )
         for j, (train_ds, test_ds) in enumerate(t):
-            results = (
-                *callback(model, train_ds, optimizer,
-                          loss_fn, device, train=True),
-                *callback(model, test_ds, None, loss_fn, device, train=False)
+            train_results = callback(
+                model,
+                train_ds,
+                optimizer,
+                loss_fn,
+                device,
+                train=True
             )
+            with torch.no_grad():
+                test_results = callback(
+                    model,
+                    test_ds,
+                    None,
+                    loss_fn,
+                    device,
+                    train=False
+                )
             toc = time.perf_counter()
-            log = logger.log(results, toc - tic)
+            log = logger.log((*train_results, *test_results), toc - tic)
             t.set_description(log)
 
         print(log)
@@ -174,10 +185,17 @@ def test(
     print(logger.header())
     tic = time.perf_counter()
 
-    for j, test_ds in enumerate(dataloader):
-        results = callback(model, test_ds, None, loss_fn, device, train=False)
-        toc = time.perf_counter()
-        log = logger.log(results, toc - tic)
+    with torch.no_grad():
+        for j, test_ds in enumerate(dataloader):
+            results = callback(
+                model,
+                test_ds,
+                None,
+                loss_fn, device,
+                train=False
+            )
+            toc = time.perf_counter()
+            log = logger.log(results, toc - tic)
 
     print(log)
 
@@ -301,10 +319,7 @@ if __name__ == '__main__':
 
     device = "cuda" if torch.cuda.is_available() else "cpu"
 
-    # Training or Testing
-    mode = config['mode']
-
-    ### TASK SETUP ###
+    # Task setup
     k = config['k']           # Number of classes
     n = config['n']           # Number of examples per support class
     m = config['m']           # Number of examples per query class

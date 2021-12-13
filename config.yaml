@@ -1,11 +1,14 @@
 train: True
 test: False
 
-arch: CustomNetwork
+# arch: CustomNetwork
 # arch: RelationNetwork
-# arch: MatchingNetwork
+arch: MatchingNetwork
 
-name: 20-way-1-shot
+# name: 20-way-1-shot
+# name: 20-way-5-shot
+# name: 5-way-1-shot
+name: 5-way-5-shot
 
 dataset: Omniglot
 # dataset: miniImageNet
@@ -18,7 +21,7 @@ k: 20 # Number of classes
 n: 1 # Number of examples per support class
 m: 19 # Number of examples per query class
 
-epochs: 500
+epochs: 200
 learning_rate: 0.001
 schedule:
   - 40
