@@ -1,25 +1,18 @@
-<<<<<<< HEAD
-mode: train
-  # mode: test
-
-  # arch: CustomNetwork
-  # arch: RelationNetwork
-arch: MatchingNetwork
-=======
-train: True
-test: False
+train: False
+test: True
 
 arch: CustomNetwork
 # arch: RelationNetwork
 # arch: MatchingNetwork
->>>>>>> fe30df3164aee34c679770f46be3d2a8d10170df
 
 name: 20-way-1-shot
 
-dataset: Omniglot
+dataset:
+  Omniglot
   # dataset: miniImageNet
 
-loss_fn: MSE
+loss_fn:
+  MSE
   # loss_fn: NLL
   # loss_fn: CrossEntropy
 
