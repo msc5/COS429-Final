@@ -49,7 +49,13 @@ class Embedding(nn.Module):
         x4 = self.conv4(x3)
         if is_sup_set:
             # reshape back into num_class x num_examples x [determined by convolution filters and downsampling]
-            x4 = x4.view(num_classes, num_examples_per_class, 64, 5, 5)
+
+            # Omniglot
+            # x4 = x4.view(num_classes, num_examples_per_class, 64, 5, 5)
+
+            # Mini Image net
+            x4 = x4.view(num_classes, num_examples_per_class, 64, 19, 19)
+
             # element-wise sum of embeddings of all examples of each class
             x4 = torch.sum(x4, 1)
         return x4
@@ -71,8 +77,10 @@ class Relation(nn.Module):
             nn.ReLU(),
             nn.MaxPool2d(2)
         )
+        # No padding here for ImageNet
+        # Padding="same" for Omniglot
         self.conv2 = nn.Sequential(
-            nn.Conv2d(out_channels, out_channels, kernel_size=3, padding="same"),
+            nn.Conv2d(out_channels, out_channels, kernel_size=3),
             nn.BatchNorm2d(out_channels),
             nn.ReLU(),
             nn.MaxPool2d(2)
@@ -91,10 +99,21 @@ class Relation(nn.Module):
         # need to reshape again like above for convolution to work
         _, _, map_chan, height, width = x.shape
         z = x.view(-1, map_chan, height, width)
-        # print(z.shape)
+        print(f'Z shape before 1st conv')
+        print(z.shape)
+        print()
         z = self.conv1(z)
+        print(f'Z shape before 2nd conv')
+        print(z.shape)
+        print()
         z = self.conv2(z)
+        print(f'Z shape before flatten')
+        print(z.shape)
+        print()
         z = self.flatten(z)
+        print(f'Z shape after flatten conv')
+        print(z.shape)
+        print()
         z = self.linear1(z)
         z = self.linear2(z)
         return z
@@ -155,6 +174,11 @@ if __name__ == '__main__':
     support_num_examples_per_class = 1
     query_num_examples_per_class = 4
 
-    model = RelationNetwork(1, 64, 128, 64, 64, num_classes=num_classes, support_num_examples_per_class=support_num_examples_per_class, query_num_examples_per_class=query_num_examples_per_class).to(device)
-    data = np.random.rand(1, 28, 28)
-    summary(model, input_size=[(num_classes, support_num_examples_per_class, 1, 28, 28), (num_classes, query_num_examples_per_class, 1, 28, 28)])
+
+    # Mimic Omniglot
+    # model = RelationNetwork(1, 64, 128, 64, 64, num_classes=num_classes, support_num_examples_per_class=support_num_examples_per_class, query_num_examples_per_class=query_num_examples_per_class).to(device)
+    # summary(model, input_size=[(num_classes, support_num_examples_per_class, 1, 28, 28), (num_classes, query_num_examples_per_class, 1, 28, 28)])
+
+    # Mimic Mini Image Net Mimic
+    model = RelationNetwork(3, 64, 128, 64, 576, num_classes=num_classes, support_num_examples_per_class=support_num_examples_per_class, query_num_examples_per_class=query_num_examples_per_class).to(device)
+    summary(model, input_size=[(num_classes, support_num_examples_per_class, 3, 84, 84), (num_classes, query_num_examples_per_class, 3, 84, 84)])
