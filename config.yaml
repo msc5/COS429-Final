@@ -1,18 +1,18 @@
 mode: train
-# mode: test
+  # mode: test
 
-# arch: CustomNetwork
-arch: RelationNetwork
-# arch: MatchingNetwork
+  # arch: CustomNetwork
+  # arch: RelationNetwork
+arch: MatchingNetwork
 
 name: 20-way-1-shot
 
 dataset: Omniglot
-# dataset: miniImageNet
+  # dataset: miniImageNet
 
 loss_fn: MSE
-# loss_fn: NLL
-# loss_fn: CrossEntropy
+  # loss_fn: NLL
+  # loss_fn: CrossEntropy
 
 k: 20 # Number of classes
 n: 1 # Number of examples per support class
