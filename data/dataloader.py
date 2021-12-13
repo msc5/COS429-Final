@@ -1,13 +1,11 @@
 import torch
 
-import matplotlib.pyplot as plt
-
 from torchvision.datasets import ImageNet, Omniglot
 from torchvision.transforms import ToTensor, Resize, Compose
 
 from torch.utils.data import Dataset, DataLoader, ConcatDataset
 
-from miniimagenettools.mini_imagenet_dataloader import MiniImageNetDataLoader
+from .mini_imagenet_dataloader import MiniImageNetDataLoader
 
 
 class OmniglotDataset(Dataset):
@@ -49,9 +47,14 @@ class ImageNetDataLoader:
         k=20,
         n=1,
         m=1,
-        phase='train'
+        phase='train',
+        device='cpu'
     ):
         self.phase = phase
+        self.device = device
+        self.k = k
+        self.n = n
+        self.m = m
         self.dl = MiniImageNetDataLoader(
             shot_num=n,
             way_num=k,
@@ -59,10 +62,23 @@ class ImageNetDataLoader:
         )
         self.dl.generate_data_list(phase=phase)
         self.dl.load_list(phase=phase)
+        self.len = self.dl.getLength(phase=phase)
+
+    def __len__(self):
+        # if self.phase == 'train':
+        #     length = int((64 * 600) / self.k)
+        # if self.phase == 'test':
+        #     length = int((20 * 600) / self.k)
+        return self.len
 
     def __getitem__(self, i):
-        s, q = self.dl.get_batch(phase=self.phase, idx=i)
-        return s, q
+        ss, sl, ts, tl = self.dl.get_batch(phase=self.phase, idx=i)
+        # print(ss.shape)
+        ss = torch.tensor(ss).view(-1, 3, 84, 84).float().to(self.device)
+        sl = torch.tensor(sl).float().to(self.device)
+        ts = torch.tensor(ts).view(-1, 3, 84, 84).float().to(self.device)
+        tl = torch.tensor(tl).float().to(self.device)
+        return (ss, sl), (ts, tl)
 
 
 class Siamese(Dataset):

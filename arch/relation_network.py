@@ -49,7 +49,9 @@ class Embedding(nn.Module):
         x4 = self.conv4(x3)
         if is_sup_set:
             # reshape back into num_class x num_examples x [determined by convolution filters and downsampling]
-            x4 = x4.view(num_classes, num_examples_per_class, 64, 5, 5)
+            # print(x4.shape)
+            # x4 = x4.view(num_classes, num_examples_per_class, 64, 5, 5)
+            x4 = x4.view(num_classes, num_examples_per_class, 64, 19, 19)
             # element-wise sum of embeddings of all examples of each class
             x4 = torch.sum(x4, 1)
         return x4
@@ -74,7 +76,7 @@ class Relation(nn.Module):
         )
         self.conv2 = nn.Sequential(
             nn.Conv2d(out_channels, out_channels,
-                      kernel_size=3, padding="same"),
+                      kernel_size=3),
             nn.BatchNorm2d(out_channels),
             nn.ReLU(),
             nn.MaxPool2d(2)
@@ -152,5 +154,5 @@ class RelationNetwork(nn.Module):
 
 if __name__ == '__main__':
     device = "cuda" if torch.cuda.is_available() else "cpu"
-    model = RelationNetwork(1, 64, 128, 64, 64, 5, 4).to(device)
-    summary(model, input_size=[(5, 4, 1, 28, 28), (5, 4, 1, 28, 28)])
+    model = RelationNetwork(3, 64, 128, 64, 576, 5, 1).to(device)
+    summary(model, input_size=[(5, 1, 3, 84, 84), (5, 1, 3, 84, 84)])
