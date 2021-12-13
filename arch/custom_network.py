@@ -116,10 +116,10 @@ class CustomNetwork(nn.Module):
                 ConvBlock(fo, fo)
             ) for _ in range(l)
         ])
-        # for p in self.pool.parameters():
-        #     p.requires_grad = False
-        # for p in self.list.parameters():
-        #     p.requires_grad = False
+        for p in self.pool.parameters():
+            p.requires_grad = False
+        for p in self.list.parameters():
+            p.requires_grad = False
         self.meta = Meta(self.li, self.li)
         self.dec = Decoder(self.li * int(s / 2**4)**2 * self.n, 200, 1)
 
@@ -154,9 +154,9 @@ class CustomNetwork(nn.Module):
 
 
 if __name__ == '__main__':
-    k = 3
-    n = 4
-    m = 5
+    k = 20
+    n = 5
+    m = 15
     s = 28
     c = 1
     l = 3

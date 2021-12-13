@@ -1,11 +1,11 @@
-train: False
-test: True
+train: Train
+test: False
 
-arch: CustomNetwork
+# arch: CustomNetwork
 # arch: RelationNetwork
-# arch: MatchingNetwork
+arch: CustomNetwork
 
-name: 20-way-1-shot
+name: 20-way-1-shot-deeper
 
 dataset:
   Omniglot

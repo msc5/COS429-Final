@@ -93,10 +93,10 @@ class MatchingNets(nn.Module):
 
 
 if __name__ == '__main__':
-    k = 8
-    n = 10
-    q = 3
-    m = 1
+    k = 20
+    n = 1
+    q = 20
+    m = 19
     device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
     model = MatchingNets(device, 1, 64).to(device)
     summary(model, input_size=[

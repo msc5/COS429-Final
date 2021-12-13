@@ -74,7 +74,8 @@ class Relation(nn.Module):
         """
         super(Relation, self).__init__()
         self.conv1 = nn.Sequential(
-            nn.Conv2d(in_channels, out_channels, kernel_size=3, padding="same"),
+            nn.Conv2d(in_channels, out_channels,
+                      kernel_size=3, padding="same"),
             nn.BatchNorm2d(out_channels),
             nn.ReLU(),
             nn.MaxPool2d(2)
@@ -82,7 +83,8 @@ class Relation(nn.Module):
         # No padding here for ImageNet
         # Padding="same" for Omniglot
         self.conv2 = nn.Sequential(
-            nn.Conv2d(out_channels, out_channels, kernel_size=3, padding="same"),
+            nn.Conv2d(out_channels, out_channels,
+                      kernel_size=3, padding="same"),
             nn.BatchNorm2d(out_channels),
             nn.ReLU(),
             nn.MaxPool2d(2)
@@ -171,7 +173,12 @@ if __name__ == '__main__':
     # summary(model, input_size=[(num_classes, support_num_examples_per_class, 1, 28, 28), (num_classes, query_num_examples_per_class, 1, 28, 28)])
 
     # Mimic Mini Image Net Mimic
-    model = RelationNetwork(3, 64, 128, 64, 576, num_classes=num_classes, support_num_examples_per_class=support_num_examples_per_class,
-                            query_num_examples_per_class=query_num_examples_per_class).to(device)
-    summary(model, input_size=[(num_classes, support_num_examples_per_class,
-            3, 84, 84), (num_classes, query_num_examples_per_class, 3, 84, 84)])
+    filters_in = 1
+    in_feat_rel = 64
+    k = 20
+    n = 1
+    m = 19
+    model = RelationNetwork(filters_in, 64, in_feat_rel, k, n, m)
+    # model = RelationNetwork(3, 64, 128, 64, 576, num_classes=num_classes, support_num_examples_per_class=support_num_examples_per_class,
+    #                         query_num_examples_per_class=query_num_examples_per_class).to(device)
+    summary(model, input_size=[(k, n, 1, 28, 28), (k, m, 1, 28, 28)])
