@@ -1,10 +1,10 @@
 graph_dir_path: ./analysis/graphs/custom-vars-20way-1shot
 logdatas:
-  - 2conv-enc-on:
-    label: "2 Conv's, Encoder ON"
+  - 1conv-enc-on:
+    label: "1 Conv, Encoder ON"
     path: ./saves/CustomNetwork/20-way-1-shot/log
-  - 2conv-enc-off:
-    label: "2 Conv's, Encoder OFF"
+  - 1conv-enc-off:
+    label: "1 Conv, Encoder OFF"
     path: ./saves/CustomNetwork/20-way-1-shot-no-enc/log
   - 3conv-enc-on:
     label: "3 Conv's, Encoder ON"
