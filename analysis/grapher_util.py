@@ -42,7 +42,7 @@ def read_logdata(path):
     total_e = 0
     is_nonzero = True
 
-    while is_nonzero:
+    while is_nonzero and total_e != data.shape[0]-1:
         # any batch in that epoch should have non-zero training loss
         # since we save only once every epoch
         total_e += 1
