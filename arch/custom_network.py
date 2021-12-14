@@ -71,8 +71,8 @@ class Meta(nn.Module):
             PoolBlock(fi, fo),
             # PoolBlock(fo, fo),
             ConvBlock(fo, fo),
-            # ConvBlock(fo, fo),
-            # ConvBlock(fo, fo)
+            ConvBlock(fo, fo),
+            ConvBlock(fo, fo)
         )
 
     def forward(self, x):
@@ -116,10 +116,10 @@ class CustomNetwork(nn.Module):
                 ConvBlock(fo, fo)
             ) for _ in range(l)
         ])
-        for p in self.pool.parameters():
-            p.requires_grad = False
-        for p in self.list.parameters():
-            p.requires_grad = False
+        # for p in self.pool.parameters():
+        #     p.requires_grad = False
+        # for p in self.list.parameters():
+        #     p.requires_grad = False
         self.meta = Meta(self.li, self.li)
         self.dec = Decoder(self.li * int(s / 2**4)**2 * self.n, 200, 1)
 
