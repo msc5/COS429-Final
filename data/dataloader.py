@@ -3,9 +3,6 @@ import torch
 from torchvision.datasets import ImageNet, Omniglot
 from torchvision.transforms import ToTensor, Resize, Compose
 from torch.utils.data import Dataset, DataLoader
-# from miniimagenettools.mini_imagenet_dataloader import MiniImageNetDataLoader
-
-from .mini_imagenet_dataloader import MiniImageNetDataLoader
 
 
 class OmniglotDataset(Dataset):

@@ -21,12 +21,12 @@ import data
 class Logger:
 
     def __init__(self, epochs, batches, path=None):
-        self.epochs = epochs        # Total Epochs
-        self.batches = batches      # Total Batches
-        self.e = 0                  # Current Epoch
-        self.b = 0                  # Current Batch
         self.path = path
         self.data = torch.zeros(epochs, batches, 5)
+        self.epochs = epochs
+        self.batches = batches
+        self.e = 0
+        self.b = 0
 
     def log(
         self,
@@ -35,9 +35,10 @@ class Logger:
     ):
         data = torch.tensor((*results, elapsed_time))
         self.data[self.e, self.b, :] = data
-        means = self.data[self.e, 0:self.b + 1, :].mean(dim=0)
-        msg = self.msg(means)
+        means = self.data[self.e, 0:self.b + 1, 0:4].mean(dim=0)
+        times = self.data[self.e, self.b, 4]
         self.b += 1
+        msg = self.msg((*means, times))
         if self.b == self.batches:
             self.b = 0
             self.e += 1
