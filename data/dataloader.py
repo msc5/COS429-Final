@@ -28,14 +28,12 @@ class OmniglotDataset(Dataset):
     def __len__(self):
         return int(len(self.ds) / 20)
 
-    # grabs respective number of images in one class for the support and query set. All images are from the same class per call to __getitem__
     def __getitem__(self, i):
         a = i * 20
         b = a + 20
         x = torch.cat([self.ds[j][0].unsqueeze(0)
                       for j in range(a, b)]).to(self.device)
         mask = torch.randperm(20).to(self.device)
-        # returns: (support_set, query_set), target_label of images of this class
         return (x[mask[0:self.n]], x[mask[self.n:self.n + self.m]]), i
 
 

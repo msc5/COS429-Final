@@ -1,70 +1,25 @@
 import torch
 import torch.nn as nn
 import torch.optim as optim
-import numpy as np
+
 from torch.utils.data.dataloader import DataLoader
 from torch.utils.data import DataLoader
 from torch.nn.utils import clip_grad_norm_
+
+import numpy as np
+
 import matplotlib.pyplot as plt
 import numpy as np
 from tqdm import tqdm
+import json
+
 import os
 import time
-import yaml
 import shutil
 
-# Our modules
 import arch
 import data
-
-
-class Logger:
-
-    def __init__(self, epochs, batches, path=None):
-        self.path = path
-        self.data = torch.zeros(epochs, batches, 5)
-        self.epochs = epochs
-        self.batches = batches
-        self.e = 0
-        self.b = 0
-
-    def log(
-        self,
-        results,
-        elapsed_time
-    ):
-        data = torch.tensor((*results, elapsed_time))
-        self.data[self.e, self.b, :] = data
-        means = self.data[self.e, 0:self.b + 1, 0:4].mean(dim=0)
-        times = self.data[self.e, self.b, 4]
-        self.b += 1
-        msg = self.msg((*means, times))
-        if self.b == self.batches:
-            self.b = 0
-            self.e += 1
-            if self.path is not None:
-                torch.save(self.data, self.path)
-        return msg
-
-    def msg(self, data):
-        train_loss, train_acc, test_loss, test_acc, elapsed_time = data
-        msg = (
-            f'{"":10}{self.e:<8}{self.b + 1:<3} / {self.batches:<6}'
-            f'{train_loss:<10.4f}{train_acc:<10.4f}'
-            f'{test_loss:<10.4f}{test_acc:<10.4f}'
-            f'{elapsed_time:<10.4f}'
-        )
-        return msg
-
-    def header(self):
-        msg = (
-            f'{"":35}{"Train":20}{"Test":20}\n'
-            f'{"":10}{"Epoch":8}{"Batch":12}'
-            f'{"Loss":10}{"Accuracy":10}'
-            f'{"Loss":10}{"Accuracy":10}'
-            f'{"Elapsed Time":15}\n'
-        )
-        return msg
+from .logger import Logger
 
 
 def train(
@@ -105,8 +60,8 @@ def train(
             return
     else:
         os.makedirs(model_dir)
-    config_path = os.path.join(model_dir, 'config.yaml')
-    shutil.copyfile('config.yaml', config_path)
+    config_path = os.path.join(model_dir, 'config.json')
+    shutil.copyfile('config.json', config_path)
 
     # Initialize Logger
     logger = Logger(epochs, num_batches, log_path)
@@ -215,22 +170,14 @@ def omniglotCallBack(
     else:
         model.eval()
 
-    (sup_set, query_set), classes = inputs
+    (s, t), classes = inputs
 
-    classes = classes.numpy()
-    sup_set, query_set = sup_set.to(device), query_set.to(device)
-    pred = model(sup_set, query_set)
+    pred = model(s, t)
 
-    num_classes = int(pred.shape[1])
-    query_num_examples_per_class = int(pred.shape[0] / num_classes)
+    k = int(pred.shape[1])
+    m = int(pred.shape[0] / k)
 
-    # target_indices = np.array(range(len(classes)))
-    # class_to_index = dict(zip(classes, target_indices))
-    # is it the case that the first query_num_examples_per_class rows (each row is a query in the prediction)
-    # still corresponds to the first class in the classes array after all the reshaping and calculations
-    # done in the RelationNetwork model?
-    lab = torch.eye(num_classes).repeat_interleave(
-        query_num_examples_per_class, dim=0).to(device)
+    lab = torch.eye(k).repeat_interleave(m, dim=0).to(device)
 
     # Compute Loss
     loss_t = loss_fn(pred, lab)
@@ -240,7 +187,6 @@ def omniglotCallBack(
     correct = torch.sum(pred.argmax(dim=1) == lab.argmax(dim=1)).item()
     acc = correct / pred.shape[0]
 
-    # zero gradient per batch or per epoch? usually, zero gradient per batch
     if train:
         optimizer.zero_grad()
         loss_t.backward()
@@ -272,27 +218,12 @@ def imagenetCallBack(
     ts = ts.squeeze(0)
     tl = tl.squeeze(0)
 
-    # print(ss.shape, sl.shape, ts.shape, tl.shape)
     k = sl.shape[1]
     n = int(sl.shape[0] / k)
     m = int(tl.shape[0] / k)
 
-    # fig, ax = plt.subplots(2, max(k * n, k * m))
-    # for i in range(k):
-    #     for j in range(n):
-    #         ax[0, i + j].imshow(ss[i, j].view(84, 84, 3).cpu().numpy())
-    #         ax[0, i + j].set_title(sl.argmax(dim=1)[i].item())
-    # for i in range(k):
-    #     for j in range(m):
-    #         ax[1, i + j].imshow(ts[i, j].view(84, 84, 3).cpu().numpy())
-    #         ax[1, i + j].set_title(tl.argmax(dim=1)[i].item())
-    # plt.show()
-
-    # print(ss.shape, ts.shape)
     pred = model(ss, ts)
     lab = tl
-
-    # print(tl, pred)
 
     # Compute Loss
     loss_t = loss_fn(pred, lab)
@@ -312,11 +243,7 @@ def imagenetCallBack(
 
 if __name__ == '__main__':
 
-    config_file = open("config.yaml", "r")
-    try:
-        config = yaml.safe_load(config_file)
-    except yaml.YAMLError as exc:
-        print(exc)
+    config = json.load(open('config.json'))
 
     device = "cuda" if torch.cuda.is_available() else "cpu"
 
