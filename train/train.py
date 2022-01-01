@@ -252,25 +252,11 @@ if __name__ == '__main__':
     n = config['n']           # Number of examples per support class
     m = config['m']           # Number of examples per query class
 
-    if config['dataset'] == 'Omniglot':
-        train_ds = data.OmniglotDataset(n, m, device, True)
-        test_ds = data.OmniglotDataset(n, m, device, False)
-        siamese = data.Siamese(train_ds, test_ds)
-        dataloader = DataLoader(
-            siamese,
-            batch_size=k,
-            shuffle=True,
-            drop_last=True
-        )
-        test_dataloader = DataLoader(
-            test_ds,
-            batch_size=k,
-            shuffle=True,
-            drop_last=True
-        )
-        callback = omniglotCallBack
-        filters_in = 1
-        s = 28
+    batch_size = config['batch_size']
+
+    dataloader = data.emitFewShotLoader(config['dataset'], batch_size, k, n, m)
+
+    filters_in = 64
 
     if config['arch'] == 'RelationNetwork':
         in_feat_rel = 64 if config['dataset'] == 'Omniglot' else 576
@@ -278,7 +264,7 @@ if __name__ == '__main__':
     elif config['arch'] == 'MatchingNetwork':
         model = arch.MatchingNets(device, filters_in, 64)
     elif config['arch'] == 'CustomNetwork':
-        model = arch.CustomNetwork(3, s, filters_in, 16, k, n, m, device)
+        model = arch.CustomNetwork(3, 28, filters_in, 16, k, n, m, device)
 
     if config['loss_fn'] == 'MSE':
         loss_fn = nn.MSELoss()

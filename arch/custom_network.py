@@ -116,6 +116,7 @@ class CustomNetwork(nn.Module):
                 ConvBlock(fo, fo)
             ) for _ in range(l)
         ])
+        # Uncomment the following lines to disable decoder learning
         # for p in self.pool.parameters():
         #     p.requires_grad = False
         # for p in self.list.parameters():
