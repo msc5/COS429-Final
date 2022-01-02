@@ -1,17 +1,17 @@
-import torch
-
-from torchvision.datasets import ImageNet, Omniglot
-from torchvision.transforms import ToTensor, Resize, Compose
-from torch.utils.data import Dataset, DataLoader
-
-from .fewshot import FewShotDataset, FewShotSampler, emitFewShotLoader
-
-import util
-
+# System Modules
 import time
 import json
 import os
 
+# Torch
+import torch
+from torchvision.datasets import ImageNet, Omniglot
+from torchvision.transforms import ToTensor, Resize, Compose
+from torch.utils.data import Dataset, DataLoader
+
+# Modules
+import util
+from .fewshot import FewShotDataset, FewShotSampler, emitFewShotLoader
 from .tests import iterate_dataset
 
 
@@ -24,7 +24,6 @@ class Siamese:
         self.dls = [d for d in dataloaders]
         self.iters = [iter(d) for d in self.dls]
         self.prime = self.dls[0]
-        # Information
         self.__name__ = ','.join([d.dataset.__name__ for d in dataloaders])
         self.batch_size = self.prime.batch_size
         self.sampler = self.prime.sampler
@@ -57,7 +56,7 @@ if __name__ == '__main__':
 
     train_dl = emitFewShotLoader('omniglot', device, 'train', bs, k, n, m)
     test_dl = emitFewShotLoader('omniglot', device, 'test', bs, k, n, m)
-    dl = Siamese(train_dl, test_dl)
+    dl = Siamese(test_dl, train_dl)
     ds = dl.dls[0].dataset
 
     iterate_dataset(dl, ds)

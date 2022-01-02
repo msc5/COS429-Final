@@ -33,10 +33,9 @@ def iterate_dataset(dl, ds):
     i = 0
     for item in iter(dl):
         i += 1
-        if not type(item[0]) is tuple:
+        # Check to see if item is nested
+        if not isinstance(item[0], list):
             item = [item]
-        if isinstance(dl, Siamese):
-            # TODO
         for j, (s, q) in enumerate(item):
             print(j, ': ', tuple(s.shape), tuple(q.shape))
         print('')

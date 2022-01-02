@@ -79,33 +79,20 @@ class Meta(nn.Module):
         return self.seq(x)
 
 
-class Decoder(nn.Module):
+class Distance(nn.Module):
 
-    def __init__(self, li, lm, lo):
-        super(Decoder, self).__init__()
-        self.seq = nn.Sequential(
-            nn.Linear(li, lm),
-            # nn.ReLU(),
-            nn.Linear(lm, lo),
-            # nn.Softmax(dim=1)
-        )
-
-    def forward(self, x):
-        x = self.seq(x)
-        return x
+    def forward(x):
+        pass
 
 
 class CustomNetwork(nn.Module):
 
-    def __init__(self, l, s, fi, fo, k, n, m, device='cpu'):
+    def __init__(self, layers, fi, fo, device='cpu'):
         super(CustomNetwork, self).__init__()
         self.device = device
         self.__name__ = 'CustomNetwork'
-        self.k = k
-        self.n = n
-        self.m = m
+        self.fi = fi
         self.fo = fo
-        self.li = fo * 2 * l
         self.pool = MultiBlock(
             PoolBlock(fi, fo),
             PoolBlock(fi, fo)
@@ -114,15 +101,9 @@ class CustomNetwork(nn.Module):
             MultiBlock(
                 ConvBlock(fo, fo),
                 ConvBlock(fo, fo)
-            ) for _ in range(l)
+            ) for _ in range(layers)
         ])
-        # Uncomment the following lines to disable decoder learning
-        # for p in self.pool.parameters():
-        #     p.requires_grad = False
-        # for p in self.list.parameters():
-        #     p.requires_grad = False
-        self.meta = Meta(self.li, self.li)
-        self.dec = Decoder(self.li * int(s / 2**4)**2 * self.n, 200, 1)
+        self.meta = Meta(self.fo, self.fo)
 
     def forward(self, s, t):
         k, n, c, h, w = s.shape
@@ -139,12 +120,10 @@ class CustomNetwork(nn.Module):
             ), dim=2)
             x.append(z)
         x = torch.cat(x, dim=2)
-        # print(x.shape)
-        # h2, w2 = int(h / 2 / 2), int(w / 2 / 2)
-        # x = x.view(-1, self.li, h2, w2)
+        print(x.shape)
         x = x.flatten(start_dim=0, end_dim=1)
         x = self.meta(x)
-        # print(x.shape)
+        print(x.shape)
         x = x.view(q * m, k * n, -1)
         x = x.view(q * m * k, self.li * n)
         # print(x.shape)
@@ -155,14 +134,17 @@ class CustomNetwork(nn.Module):
 
 
 if __name__ == '__main__':
+
     k = 20
-    n = 5
-    m = 15
-    s = 28
-    c = 1
-    l = 3
-    # device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
-    device = 'cpu'
-    model = CustomNetwork(l, s, c, 16, k, n, m, device).to(device)
-    summary(model, input_size=[(k, n, c, s, s),
-            (k, m, c, s, s)], device=device)
+    n = 1
+    m = 1
+    size = 84
+    channels = 3
+    meta_layers = 3
+
+    device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
+    model = CustomNetwork(meta_layers, channels, 16, device).to(device)
+    summary(model, input_size=[
+        (k, n, channels, size, size),
+        (k, m, channels, size, size)
+    ], device=device)
