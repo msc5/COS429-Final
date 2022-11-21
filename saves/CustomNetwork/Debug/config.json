@@ -1,0 +1,14 @@
+{
+	"train": true,
+	"test": false,
+	"arch": "CustomNetwork",
+	"name": "Debug",
+	"dataset": "Omniglot",
+	"loss_fn": "MSE",
+	"k": 5,
+	"n": 1,
+	"m": 15,
+	"epochs": 250,
+	"learning_rate": 0.001,
+	"schedule": [50, 100, 200]
+}
